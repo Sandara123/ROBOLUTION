@@ -653,9 +653,13 @@ const requireAdmin = (req, res, next) => {
             next();
         } catch (error) {
             console.error('Error validating admin:', error);
-            // Continue to next middleware even if validation fails
-            // This ensures the app remains usable even if DB issues occur
-            next();
+            // Instead of just next(), handle the error more strictly:
+            req.session.destroy(err => {
+                if (err) {
+                    console.error('Error destroying session during admin validation failure:', err);
+                }
+                return res.redirect('/login?message=admin_validation_error');
+            });
         }
     };
     
@@ -1110,11 +1114,11 @@ app.post('/manage-categories/:id/delete-image', async (req, res) => {
 });
 
 // Route to show edit post page
-app.get('/edit-post/:id', async (req, res) => {
-  // Check if user is logged in and is an admin
-  if (!req.session.user || !req.session.user.isAdmin) {
-    return res.redirect('/login');
-  }
+app.get('/edit-post/:id', requireAdmin, async (req, res) => {
+  // The following admin check is now handled by requireAdmin middleware and can be removed.
+  // if (!req.session.user || !req.session.user.isAdmin) {
+  //   return res.redirect('/login');
+  // }
 
   try {
     // Get all posts for regions dropdown
@@ -1167,11 +1171,11 @@ app.get('/edit-post/:id', async (req, res) => {
 });
 
 // Route to handle post update with direct MongoDB access
-app.post('/edit-post/:id', upload.single('image'), async (req, res) => {
-  // Check if user is logged in and is an admin
-  if (!req.session.user || !req.session.user.isAdmin) {
-    return res.status(403).send('Unauthorized');
-  }
+app.post('/edit-post/:id', requireAdmin, upload.single('image'), async (req, res) => {
+  // Check if user is logged in and is an admin -- THIS CHECK WILL BE REMOVED
+  // if (!req.session.user || !req.session.user.isAdmin) {
+  //   return res.status(403).send('Unauthorized');
+  // }
   
   try {
     console.log('Updating post with ID:', req.params.id);
@@ -2314,24 +2318,62 @@ if (require.main === module) {
 module.exports = app;
 
 // Delete post route
-app.post('/delete-post/:id', async (req, res) => {
-  // Check if user is logged in and is an admin
-  if (!req.session.user || !req.session.user.isAdmin) {
-    return res.status(403).send('Unauthorized');
-  }
+app.post('/delete-post/:id', requireAdmin, async (req, res) => {
+  // Admin check is now handled by requireAdmin middleware
+  // if (!req.session.user || !req.session.user.isAdmin) {
+  //   return res.status(403).send('Unauthorized');
+  // }
   
-  const post = await Post.findById(req.params.id);
-  if (post) {
-    if (post.imageUrl) {
-      const filePath = path.join(__dirname, 'public', post.imageUrl);
-      fs.unlink(filePath, (err) => {
-        if (err) console.log('Failed to delete image:', err);
-        else console.log('Image deleted:', filePath);
-      });
+  try {
+    const postId = req.params.id;
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      console.log(`[Delete Post] Post not found with ID: ${postId}`);
+      return res.status(404).send('Post not found.');
     }
-    await Post.findByIdAndDelete(req.params.id);
+
+    // If the post has an image URL and it's a Cloudinary URL, try to delete it from Cloudinary
+    if (post.imageUrl && post.imageUrl.includes('res.cloudinary.com')) {
+      try {
+        const parts = post.imageUrl.split('/');
+        // Assumes Cloudinary folder structure like robolution/posts/filename
+        const publicIdInFolder = parts.slice(parts.indexOf('robolution')).join('/'); 
+        const publicId = publicIdInFolder.substring(0, publicIdInFolder.lastIndexOf('.'));
+        
+        console.log(`[Delete Post] Attempting to delete image from Cloudinary with public_id: ${publicId}`);
+        await cloudinary.uploader.destroy(publicId);
+        console.log(`[Delete Post] Successfully deleted image from Cloudinary: ${publicId}`);
+      } catch (cloudinaryError) {
+        console.error(`[Delete Post] Error deleting image from Cloudinary (post ID: ${postId}, image: ${post.imageUrl}):`, cloudinaryError);
+        // Log the error but proceed with deleting the post from DB
+      }
+    } else if (post.imageUrl) {
+      // Optional: Handle deletion of local images if they might still exist and are not Cloudinary URLs
+      // This part depends on whether you expect any valid non-Cloudinary images.
+      // For now, we'll just log if it's not a Cloudinary URL.
+      console.log(`[Delete Post] Post image is not a Cloudinary URL, not attempting Cloudinary delete: ${post.imageUrl}`);
+      // If you are sure these are old local files you want to attempt to delete:
+      // const localFilePath = path.join(__dirname, 'public', post.imageUrl);
+      // if (fs.existsSync(localFilePath)) {
+      //   fs.unlink(localFilePath, (err) => {
+      //     if (err) console.log('[Delete Post] Failed to delete local image:', err);
+      //     else console.log('[Delete Post] Local image deleted:', localFilePath);
+      //   });
+      // }
+    }
+
+    await Post.findByIdAndDelete(postId);
+    console.log(`[Delete Post] Successfully deleted post with ID: ${postId}`);
+    
+    res.redirect('/index');
+  } catch (error) {
+    console.error(`[Delete Post] Error deleting post with ID ${req.params.id}:`, error);
+    if (error.name === 'CastError' && error.kind === 'ObjectId') {
+      return res.status(400).send('Invalid Post ID format for deletion.');
+    }
+    res.status(500).send('Error deleting post.');
   }
-  res.redirect('/index'); // Redirect to admin dashboard
 });
 
 // Add routes for user 2FA setup
@@ -4150,10 +4192,12 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
     // Download and process each collection file
     for (const file of backup.files) {
       if (!file.url || !file.collection) {
-        console.log(`Skipping file with missing information: ${JSON.stringify(file)}`);
+        console.log(`[Restore] Skipping file with missing information: ${JSON.stringify(file)}`);
         continue;
       }
       
+      console.log(`[Restore] Processing file: ${file.collection} from ${file.url}`); // Added log
+
       try {
         // Download file from Cloudinary
         const response = await axios.get(file.url, { responseType: 'text' });
@@ -4161,22 +4205,29 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
         const collectionData = JSON.parse(data);
         const collectionName = file.collection;
         
-        console.log(`Restoring collection: ${collectionName} with ${collectionData.length} documents`);
+        console.log(`[Restore] Restoring collection: ${collectionName} with ${collectionData.length} documents`);
         
         // Special handling for users and admins collections to preserve current users
         if (collectionName === 'users') {
-          console.log('Merging users with preserved accounts...');
+          console.log('[Restore] Merging users with preserved accounts...');
           
           // Process documents to convert string IDs to ObjectIds where needed
-          const processedData = collectionData.map(processDocument);
+          const processedData = collectionData.map(doc => { // Added logging for posts
+            const processed = processDocument(doc);
+            if (collectionName === 'posts' && processed.imageUrl) {
+              console.log(`[Restore Post Detail] Original imageUrl from backup for post "${processed.title}": ${doc.imageUrl}`);
+              console.log(`[Restore Post Detail] Processed imageUrl for post "${processed.title}": ${processed.imageUrl}`);
+            }
+            return processed;
+          });
           
           // Drop the existing collection
           try {
             await db.collection(collectionName).drop();
-            console.log(`Dropped existing collection: ${collectionName}`);
+            console.log(`[Restore] Dropped existing collection: ${collectionName}`);
           } catch (dropError) {
             // Collection might not exist, which is okay
-            console.log(`Collection ${collectionName} might not exist, continuing`);
+            console.log(`[Restore] Collection ${collectionName} might not exist, continuing`);
           }
           
           // Merge backup users with current users (current users take precedence)
@@ -4197,23 +4248,30 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
           // Insert the merged users
           if (mergedUsers.length > 0) {
             await db.collection(collectionName).insertMany(mergedUsers);
-            console.log(`Restored ${mergedUsers.length} users with ${Object.keys(existingUsersMap).length} preserved accounts`);
+            console.log(`[Restore] Restored ${mergedUsers.length} users with ${Object.keys(existingUsersMap).length} preserved accounts`);
           }
         } 
         // Special handling for admins collection
         else if (collectionName === 'admins') {
-          console.log('Merging admins with preserved accounts...');
+          console.log('[Restore] Merging admins with preserved accounts...');
           
           // Process documents to convert string IDs to ObjectIds where needed
-          const processedData = collectionData.map(processDocument);
+          const processedData = collectionData.map(doc => { // Added logging for posts
+            const processed = processDocument(doc);
+            if (collectionName === 'posts' && processed.imageUrl) {
+              console.log(`[Restore Post Detail] Original imageUrl from backup for post "${processed.title}": ${doc.imageUrl}`);
+              console.log(`[Restore Post Detail] Processed imageUrl for post "${processed.title}": ${processed.imageUrl}`);
+            }
+            return processed;
+          });
           
           // Drop the existing collection
           try {
             await db.collection(collectionName).drop();
-            console.log(`Dropped existing collection: ${collectionName}`);
+            console.log(`[Restore] Dropped existing collection: ${collectionName}`);
           } catch (dropError) {
             // Collection might not exist, which is okay
-            console.log(`Collection ${collectionName} might not exist, continuing`);
+            console.log(`[Restore] Collection ${collectionName} might not exist, continuing`);
           }
           
           // Merge backup admins with current admins (current admins take precedence)
@@ -4234,32 +4292,43 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
           // Insert the merged admins
           if (mergedAdmins.length > 0) {
             await db.collection(collectionName).insertMany(mergedAdmins);
-            console.log(`Restored ${mergedAdmins.length} admins with ${Object.keys(existingAdminsMap).length} preserved accounts`);
+            console.log(`[Restore] Restored ${mergedAdmins.length} admins with ${Object.keys(existingAdminsMap).length} preserved accounts`);
           }
         }
         else {
           // Regular handling for other collections
+          console.log(`[Restore] Performing regular restore for collection: ${collectionName}`); // Added log
           
           // Drop the existing collection to ensure clean restore
           try {
             await db.collection(collectionName).drop();
-            console.log(`Dropped existing collection: ${collectionName}`);
+            console.log(`[Restore] Dropped existing collection: ${collectionName}`);
           } catch (dropError) {
-            // Collection might not exist, which is okay
-            console.log(`Collection ${collectionName} might not exist, continuing`);
+            console.log(`[Restore] Collection ${collectionName} might not exist or drop failed (which can be OK): ${dropError.message}`);
           }
           
           // Process documents with consistent ObjectID handling
-          const processedData = collectionData.map(processDocument);
+          const processedData = collectionData.map(doc => {
+            const processed = processDocument(doc);
+            if (collectionName === 'posts' && doc.imageUrl) { // Check original doc for imageUrl
+              console.log(`[Restore Post Detail] Original imageUrl from backup for post "${doc.title}": ${doc.imageUrl}`);
+              console.log(`[Restore Post Detail] Processed imageUrl for post "${processed.title}": ${processed.imageUrl}`);
+            }
+            return processed;
+          });
           
           // Insert the backup data
           if (processedData.length > 0) {
+            console.log(`[Restore] Attempting to insert ${processedData.length} documents into ${collectionName}. First doc: ${JSON.stringify(processedData[0])}`); // Added log
             await db.collection(collectionName).insertMany(processedData);
-            console.log(`Restored ${processedData.length} documents to ${collectionName}`);
+            console.log(`[Restore] Restored ${processedData.length} documents to ${collectionName}`);
+          } else {
+            console.log(`[Restore] No documents to insert for ${collectionName}.`); // Added log
           }
         }
       } catch (fileError) {
-        console.error(`Error processing file ${file.collection}:`, fileError);
+        console.error(`[Restore] Error processing file ${file.collection}:`, fileError.message); // Log error message
+        console.error(`[Restore] Full error object for ${file.collection}:`, fileError); // Log full error object
       }
     }
     
@@ -4647,7 +4716,7 @@ app.get('/post/:id', async (req, res) => {
 });
 
 // Update route to show edit post page with direct MongoDB access
-app.get('/edit-post/:id', async (req, res) => {
+app.get('/edit-post/:id', requireAdmin, async (req, res) => {
   // Check if user is logged in and is an admin
   if (!req.session.user || !req.session.user.isAdmin) {
     return res.redirect('/login');
