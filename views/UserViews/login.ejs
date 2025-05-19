@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f5ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        .login-container {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 70, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h1 {
+            text-align: center;
+            color: #001f5c;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #001f5c;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccd7ea;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            border-color: #003399;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 51, 153, 0.3);
+        }
+        
+        .login-button {
+            background-color: #003399;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .login-button:hover {
+            background-color: #00286b;
+        }
+        
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .register-link a {
+            color: #003399;
+            text-decoration: none;
+        }
+        
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            color: #d32f2f;
+            text-align: center;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .two-factor-container {
+            margin-top: 15px;
+            margin-bottom: 15px;
+            display: none; /* Initially hidden */
+        }
+        
+        .message-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            display: none;
+            z-index: 1000;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .success {
+            background-color: #28a745;
+        }
+
+        .error {
+            background-color: #dc3545;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #003399;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* QR Code styling */
+        .qr-code-container {
+            margin-top: 15px;
+            text-align: center;
+            padding: 10px;
+            border: 1px solid #ccd7ea;
+            border-radius: 5px;
+            background-color: #f9fbff;
+        }
+        
+        .qr-code-container img {
+            max-width: 200px;
+            height: auto;
+            margin: 10px auto;
+            display: block;
+        }
+        
+        .qr-code-instructions {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="message-popup" id="messagePopup"></div>
+    
+    <div class="login-container">
+        <h1>Login</h1>
+        
+        <div id="error-message" class="error-message"></div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <div id="twoFactorSection" class="form-group two-factor-container" style="display: none;">
+                <label for="token">Two-Factor Code</label>
+                <input type="text" id="token" name="token" placeholder="Enter 6-digit code from your authenticator app">
+            </div>
+            
+            <!-- Hidden input for redirect URL -->
+            <input type="hidden" id="redirect" name="redirect" value="">
+            
+            <button type="submit" class="login-button">
+                <span>Login</span>
+                <div class="loading-spinner" id="loadingSpinner"></div>
+            </button>
+        </form>
+        
+        <div class="register-link">
+            <a href="/signup">Don't have an account? Register here</a>
+        </div>
+    </div>
+    
+    <script>
+        // Function to get URL parameters
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+        
+        // Set redirect URL from query parameter if available
+        document.addEventListener('DOMContentLoaded', function() {
+            const redirectParam = getUrlParameter('redirect');
+            if (redirectParam) {
+                document.getElementById('redirect').value = redirectParam;
+            }
+            
+            // Check for message parameter and display appropriate message
+            const messageParam = getUrlParameter('message');
+            if (messageParam === 'session_expired') {
+                showMessage('Your session has expired. Please log in again.', 'error');
+            }
+        });
+        
+        function showMessage(message, type) {
+            const popup = document.getElementById('messagePopup');
+            popup.textContent = message;
+            popup.className = `message-popup ${type}`;
+            popup.style.display = 'block';
+            
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 3000);
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Show loading spinner
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            loadingSpinner.style.display = 'inline-block';
+            
+            const formData = new FormData(this);
+            const data = {
+                username: formData.get('username'),
+                password: formData.get('password'),
+                token: formData.get('token') || '',
+                redirect: formData.get('redirect') || ''
+            };
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                console.log('Login response:', result); // Debug the server response
+                
+                if (result.requireTwoFactor) {
+                    if (result.needs2FASetup) {
+                        // User needs to set up 2FA - redirect to setup page
+                        showMessage('Redirecting to 2FA setup...', 'info');
+                        
+                        // Store credentials temporarily to pass to the setup page
+                        window.location.href = `/2fa-confirmation?username=${encodeURIComponent(data.username)}&password=${encodeURIComponent(data.password)}`;
+                    } else {
+                        // User already has 2FA set up, just show the token input
+                        document.getElementById('twoFactorSection').style.display = 'block';
+                        showMessage(result.message || 'Please enter your two-factor code', 'error');
+                    }
+                } else if (result.success) {
+                    showMessage('Login successful! Redirecting...', 'success');
+                    
+                    try {
+                        // Store login state in localStorage only if server signals to do so
+                        if (result.setLocalStorage) {
+                            localStorage.setItem('isLoggedIn', 'true');
+                            console.log('Login status saved to localStorage');
+                        }
+                    } catch (e) {
+                        console.error('Could not save to localStorage:', e);
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.replace(result.redirectUrl || '/');
+                    }, 1000);
+                } else {
+                    showMessage(result.message || 'Login failed', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('An error occurred during login. Please try again.', 'error');
+            } finally {
+                // Hide loading spinner
+                loadingSpinner.style.display = 'none';
+            }
+        });
+    </script>
+    
+    <script>
+        // Check if this page is being accessed via back button after logout
+        window.addEventListener('pageshow', function(event) {
+            // If the page is loaded from cache (back/forward navigation)
+            if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+                // Clear any stale login state
+                try {
+                    localStorage.removeItem('isLoggedIn');
+                    sessionStorage.clear();
+                } catch (e) {
+                    console.error('Could not clear storage:', e);
+                }
+                
+                // Reset form
+                document.getElementById('loginForm').reset();
+                document.getElementById('twoFactorSection').style.display = 'none';
+            }
+        });
+        
+        // Also verify session state when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Quick check if we need to verify session (only if localStorage says we're logged in)
+            if (localStorage.getItem('isLoggedIn') === 'true') {
+                // Add a random parameter to avoid caching
+                fetch('/api/check-session?t=' + new Date().getTime(), { 
+                    credentials: 'same-origin',
+                    headers: { 'Cache-Control': 'no-cache' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.authenticated) {
+                        localStorage.removeItem('isLoggedIn');
+                    }
+                })
+                .catch(error => {
+                    console.error('Session check error:', error);
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

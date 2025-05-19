@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manage Categories | Robolution</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/manage-cat.css">
+  <style>
+    /* Dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .dropdown-btn {
+      cursor: pointer;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 220px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 4px;
+      padding: 8px 0;
+    }
+    
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+      transition: background-color 0.2s ease;
+    }
+    
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+    
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+    
+    .dropdown-empty {
+      padding: 12px 16px;
+      color: #666;
+      font-style: italic;
+    }
+
+    /* Header nav styles */
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-button {
+      padding: 8px 16px;
+      border-radius: 4px;
+      text-decoration: none;
+      color: white;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: background-color 0.2s;
+    }
+
+    .nav-button:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .create-post-button {
+      background-color: #4CAF50;
+    }
+
+    .create-post-button:hover {
+      background-color: #45a049;
+    }
+
+    .logout-button {
+      background-color: #f44336;
+    }
+
+    .logout-button:hover {
+      background-color: #da190b;
+    }
+  </style>
+  <script src="/js/manage-cat.js"></script>
+</head>
+<body>
+<div class="content-wrapper">
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
+        <a href="/index" class="nav-button">News</a>
+        <a href="/categories" class="nav-button">Categories</a>
+        <a href="/manage-categories" class="nav-button">Manage Categories</a>
+        <a href="/manage-registrations" class="nav-button">Manage Registration</a>
+        <a href="/manage-accounts" class="nav-button">Accounts</a>
+        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
+        <% if (user && user.role === 'superadmin') { %>
+        <a href="/manage-backups" class="nav-button">Backups</a>
+        <% } %>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
+              <a href="/admin-regional?region=All">All Regions</a>
+              <% uniqueRegions.forEach(function(region) { %>
+                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
+              <% }); %>
+            <% } else { %>
+              <div class="dropdown-empty">No regional posts available</div>
+            <% } %>
+          </div>
+        </div>
+        <a href="/logout" class="nav-button logout-button">Logout</a>
+      </nav>
+    </div>
+  </header>
+  <main class="main-create">
+    <h2 style="text-align:center; color:#00008b; margin-bottom:32px;">Manage Categories</h2>
+    <div class="category-admin-container">
+      <div class="category-form-card">
+        <h3>Add New Category</h3>
+        <form action="/manage-categories/add" method="POST" enctype="multipart/form-data" class="category-form" id="addCategoryForm">
+          <input type="text" name="title" placeholder="Category Title" required>
+          <input type="text" name="description" placeholder="Description">
+          <div class="upload-container" id="uploadContainer">
+            <input type="file" name="image" id="imageUpload" accept="image/*" style="display:none;">
+            <div id="uploadPreview" class="upload-preview">Drag & Drop or Click to Add Photo</div>
+          </div>
+          <div class="section-toggle">
+            <input type="checkbox" id="showMechanics" name="showMechanics" checked>
+            <label for="mechanics"><b>MECHANICS</b></label>
+          </div>
+          <textarea name="mechanics" id="mechanics" rows="5" style="min-height:80px;" placeholder="One per line"></textarea>
+
+          <div class="section-toggle">
+            <input type="checkbox" id="showGeneralConduct" name="showGeneralConduct" checked>
+            <label for="generalConduct"><b>GENERAL CONDUCT</b></label>
+          </div>
+          <textarea name="generalConduct" id="generalConduct" rows="5" style="min-height:80px;" placeholder="One per line"></textarea>
+
+          <div class="section-toggle">
+            <input type="checkbox" id="showGeneralRules" name="showGeneralRules" checked>
+            <label for="generalRules"><b>GENERAL RULES</b></label>
+          </div>
+          <textarea name="generalRules" id="generalRules" rows="5" style="min-height:80px;" placeholder="One per line"></textarea>
+
+          <div class="section-toggle">
+            <input type="checkbox" id="showParticipantsRequirement" name="showParticipantsRequirement" checked>
+            <label for="participantsRequirement"><b>PARTICIPANTS REQUIREMENT</b></label>
+          </div>
+          <textarea name="participantsRequirement" id="participantsRequirement" rows="5" style="min-height:80px;" placeholder="One per line"></textarea>
+
+          <div class="section-toggle">
+            <input type="checkbox" id="showTeamRequirement" name="showTeamRequirement" checked>
+            <label for="teamRequirement"><b>TEAM REQUIREMENT</b></label>
+          </div>
+          <textarea name="teamRequirement" id="teamRequirement" rows="5" style="min-height:80px;" placeholder="One per line"></textarea>
+          <button type="submit" class="submit-btn">Add Category</button>
+        </form>
+      </div>
+      <div class="category-list-section">
+        <h3>Existing Categories</h3>
+        <% if (categories.length === 0) { %>
+          <p style="text-align:center; color:#888;">No categories yet.</p>
+        <% } %>
+        <% categories.slice().reverse().forEach(function(cat) { %>
+          <div class="category-card">
+            <form action="/manage-categories/edit/<%= cat._id %>" method="POST" enctype="multipart/form-data" class="category-edit-form">
+              <input type="text" name="title" value="<%= cat.title %>" required>
+              <input type="text" name="description" value="<%= cat.description %>">
+              
+              <div class="upload-container" id="uploadContainer-<%= cat._id %>">
+                <input type="file" name="image" id="imageUpload-<%= cat._id %>" accept="image/*" style="display:none;">
+                <input type="hidden" name="currentImageUrl" value="<%= cat.imageUrl %>">
+                <div id="uploadPreview-<%= cat._id %>" class="upload-preview">
+                  <% if (cat.imageUrl) { %>
+                    <div class="image-preview-container">
+                      <img src="<%= cat.imageUrl %>" alt="<%= cat.title %>">
+                      <button type="button" class="delete-image-btn" onclick="deleteImage('<%= cat._id %>', '<%= cat.imageUrl %>')">
+                        ✕
+                      </button>
+                    </div>
+                  <% } else { %>
+                    Drag & Drop or Click to Add Photo
+                  <% } %>
+                </div>
+              </div>
+
+              <div class="section-toggle">
+                <input type="checkbox" id="showMechanics-<%= cat._id %>" name="showMechanics" <%= cat.showMechanics ? 'checked' : '' %>>
+                <label for="showMechanics-<%= cat._id %>"><b>MECHANICS</b></label>
+              </div>
+              <textarea name="mechanics" id="mechanics-<%= cat._id %>" rows="5" style="min-height:80px;" <%= !cat.showMechanics ? 'disabled' : '' %>><%= cat.mechanics ? cat.mechanics.join('\n') : '' %></textarea>
+
+              <div class="section-toggle">
+                <input type="checkbox" id="showGeneralConduct-<%= cat._id %>" name="showGeneralConduct" <%= cat.showGeneralConduct ? 'checked' : '' %>>
+                <label for="showGeneralConduct-<%= cat._id %>"><b>GENERAL CONDUCT</b></label>
+              </div>
+              <textarea name="generalConduct" id="generalConduct-<%= cat._id %>" rows="5" style="min-height:80px;" <%= !cat.showGeneralConduct ? 'disabled' : '' %>><%= cat.generalConduct ? cat.generalConduct.join('\n') : '' %></textarea>
+
+              <div class="section-toggle">
+                <input type="checkbox" id="showGeneralRules-<%= cat._id %>" name="showGeneralRules" <%= cat.showGeneralRules ? 'checked' : '' %>>
+                <label for="showGeneralRules-<%= cat._id %>"><b>GENERAL RULES</b></label>
+              </div>
+              <textarea name="generalRules" id="generalRules-<%= cat._id %>" rows="5" style="min-height:80px;" <%= !cat.showGeneralRules ? 'disabled' : '' %>><%= cat.generalRules ? cat.generalRules.join('\n') : '' %></textarea>
+
+              <div class="section-toggle">
+                <input type="checkbox" id="showParticipantsRequirement-<%= cat._id %>" name="showParticipantsRequirement" <%= cat.showParticipantsRequirement ? 'checked' : '' %>>
+                <label for="showParticipantsRequirement-<%= cat._id %>"><b>PARTICIPANTS REQUIREMENT</b></label>
+              </div>
+              <textarea name="participantsRequirement" id="participantsRequirement-<%= cat._id %>" rows="5" style="min-height:80px;" <%= !cat.showParticipantsRequirement ? 'disabled' : '' %>><%= cat.participantsRequirement ? cat.participantsRequirement.join('\n') : '' %></textarea>
+
+              <div class="section-toggle">
+                <input type="checkbox" id="showTeamRequirement-<%= cat._id %>" name="showTeamRequirement" <%= cat.showTeamRequirement ? 'checked' : '' %>>
+                <label for="showTeamRequirement-<%= cat._id %>"><b>TEAM REQUIREMENT</b></label>
+              </div>
+              <textarea name="teamRequirement" id="teamRequirement-<%= cat._id %>" rows="5" style="min-height:80px;" <%= !cat.showTeamRequirement ? 'disabled' : '' %>><%= cat.teamRequirement ? cat.teamRequirement.join('\n') : '' %></textarea>
+
+              <div class="category-actions">
+                <button type="submit" class="submit-btn">Save</button>
+                <form action="/manage-categories/delete/<%= cat._id %>" method="POST" style="display:inline;">
+                  <button type="submit" class="delete-btn" onclick="return confirm('Delete this category?')">Delete</button>
+                </form>
+              </div>
+            </form>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </main>
+  <footer class="footer-simple">
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+      <div class="footer-right">
+        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+        <div class="social-icons">
+          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Handle dropdowns
+    const dropdowns = document.querySelectorAll('.dropdown');
+    dropdowns.forEach(dropdown => {
+      const btn = dropdown.querySelector('.dropdown-btn');
+      const content = dropdown.querySelector('.dropdown-content');
+      
+      // Show dropdown on hover
+      dropdown.addEventListener('mouseenter', () => {
+        content.style.display = 'block';
+      });
+      
+      // Hide dropdown when mouse leaves
+      dropdown.addEventListener('mouseleave', () => {
+        content.style.display = 'none';
+      });
+    });
+
+    // Handle file upload previews
+    const uploadContainers = document.querySelectorAll('.upload-container');
+    uploadContainers.forEach(container => {
+      const preview = container.querySelector('.upload-preview');
+      const input = container.querySelector('input[type="file"]');
+      
+      if (preview && input) {
+        preview.addEventListener('click', () => input.click());
+        
+        container.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          container.classList.add('dragover');
+        });
+        
+        container.addEventListener('dragleave', () => {
+          container.classList.remove('dragover');
+        });
+        
+        container.addEventListener('drop', (e) => {
+          e.preventDefault();
+          container.classList.remove('dragover');
+          if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            handleFileSelect(input);
+          }
+        });
+        
+        input.addEventListener('change', () => handleFileSelect(input));
+      }
+    });
+
+    function handleFileSelect(input) {
+      const container = input.closest('.upload-container');
+      const preview = container.querySelector('.upload-preview');
+      
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          preview.innerHTML = `<div class="image-preview-container">
+            <img src="${e.target.result}" alt="Preview">
+            <button type="button" class="delete-image-btn" onclick="clearFileInput('${input.id}')">✕</button>
+          </div>`;
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+  });
+
+  function clearFileInput(inputId) {
+    const input = document.getElementById(inputId);
+    const container = input.closest('.upload-container');
+    const preview = container.querySelector('.upload-preview');
+    
+    input.value = '';
+    preview.innerHTML = 'Drag & Drop or Click to Add Photo';
+  }
+
+  function deleteImage(categoryId, imageUrl) {
+    if (confirm('Are you sure you want to delete this image?')) {
+      fetch(`/manage-categories/${categoryId}/delete-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ imageUrl })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          const preview = document.getElementById(`uploadPreview-${categoryId}`);
+          preview.innerHTML = 'Drag & Drop or Click to Add Photo';
+        } else {
+          alert('Error deleting image: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting image');
+      });
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile | Robolution</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+  <script src="/js/script.js" defer></script>
+  <script src="/js/mobile.js" defer></script>
+  <style>
+    /* Set background to white */
+    body, main {
+      background-color: #ffffff;
+      background-image: none;
+      min-height: 100vh;
+    }
+    
+    /* Main content wrapper to ensure footer stays at bottom */
+    .content-wrapper {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    
+    main {
+      flex: 1;
+    }
+    
+    /* Footer styles - fix it to the bottom */
+    .fixed-footer {
+      margin-top: auto;
+      width: 100%;
+      background-color: #00008b;
+      color: white;
+      padding: 15px 0;
+    }
+    
+    /* Profile container styles */
+    .profile-container {
+      max-width: 900px;
+      margin: 120px auto 40px;
+      padding: 0 20px;
+    }
+    
+    .profile-card {
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      margin-bottom: 30px;
+      position: relative;
+    }
+    
+    .profile-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eee;
+      position: relative;
+    }
+    
+    .profile-picture-container {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      margin-bottom: 20px;
+      overflow: hidden;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .profile-picture {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .change-picture {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      text-align: center;
+      padding: 8px 0;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: opacity 0.3s;
+      opacity: 0;
+    }
+    
+    .profile-picture-container:hover .change-picture {
+      opacity: 1;
+    }
+    
+    .username {
+      font-size: 1.8rem;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #00008b;
+    }
+    
+    .fullname {
+      font-size: 1.2rem;
+      color: #555;
+      margin-bottom: 10px;
+    }
+    
+    .email {
+      font-size: 1rem;
+      color: #777;
+    }
+    
+    .profile-section {
+      margin-bottom: 25px;
+    }
+    
+    .section-title {
+      font-size: 1.4rem;
+      color: #00008b;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #eee;
+    }
+    
+    .info-group {
+      margin-bottom: 20px;
+    }
+    
+    .info-label {
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 5px;
+      display: block;
+    }
+    
+    .info-value {
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+    
+    .not-provided {
+      color: #999;
+      font-style: italic;
+    }
+    
+    .edit-profile-btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #00008b;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      margin-top: 15px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .edit-profile-btn:hover {
+      background-color: #0000cd;
+    }
+    
+    /* Edit form styles */
+    #editProfileForm {
+      display: none;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #444;
+    }
+    
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .form-col {
+      flex: 1;
+    }
+    
+    .action-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    
+    .save-btn {
+      padding: 10px 25px;
+      background-color: #00008b;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    .cancel-btn {
+      padding: 10px 25px;
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    #profilePictureInput {
+      display: none;
+    }
+    
+    .message {
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 5px;
+      display: none;
+    }
+    
+    .success {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+    
+    .error {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
+    
+    /* Responsive styles */
+    @media (max-width: 768px) {
+      .form-row {
+        flex-direction: column;
+        gap: 0;
+      }
+      
+      .profile-header {
+        text-align: center;
+      }
+      
+      .profile-picture-container {
+        width: 120px;
+        height: 120px;
+      }
+      
+      .username {
+        font-size: 1.5rem;
+      }
+      
+      .action-buttons {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .save-btn, .cancel-btn {
+        width: 100%;
+      }
+    }
+    
+    /* Dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-btn {
+      cursor: pointer;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 220px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 4px;
+      padding: 8px 0;
+    }
+
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+      transition: background-color 0.2s ease;
+    }
+
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+    
+    .dropdown-empty {
+      padding: 12px 16px;
+      color: #666;
+      font-style: italic;
+    }
+    
+    /* Registration status styles */
+    .registration-card {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-left: 4px solid #00008b;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .registration-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .registration-header h3 {
+      font-size: 1.1rem;
+      color: #00008b;
+      margin: 0;
+      margin-right: 15px;
+    }
+    
+    .registration-date {
+      font-size: 0.9rem;
+      color: #666;
+    }
+    
+    .verification-status {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+    
+    .verification-status.verified {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .verification-status.unverified {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .verification-status.denied {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    .registration-details {
+      padding: 5px 0;
+    }
+    
+    .reg-detail-item {
+      margin-bottom: 10px;
+    }
+    
+    .reg-list {
+      margin: 5px 0 5px 25px;
+      padding: 0;
+    }
+    
+    .reg-list li {
+      margin-bottom: 3px;
+    }
+    
+    .verification-info {
+      font-size: 0.9rem;
+      padding: 8px;
+      background-color: #e9f5ee;
+      border-radius: 5px;
+      margin-top: 10px;
+    }
+
+    .denial-info {
+      font-size: 0.95rem;
+      padding: 12px;
+      background-color: #fff0f0;
+      border-radius: 5px;
+      margin-top: 10px;
+      border-left: 3px solid #f8d7da;
+    }
+
+    .denial-info .verification-info {
+      background-color: transparent;
+      padding: 5px 0;
+      font-size: 0.85rem;
+      color: #721c24;
+    }
+
+    .resubmit-message {
+      margin-top: 10px;
+      font-style: italic;
+      color: #721c24;
+      border-top: 1px dashed #f8d7da;
+      padding-top: 8px;
+    }
+    
+    @media (max-width: 768px) {
+      .registration-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .verification-status {
+        margin-top: 8px;
+        align-self: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="content-wrapper">
+
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/user-landing" class="nav-button">News</a>
+        <a href="/user-categories" class="nav-button">Categories</a>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <a href="/regional?region=All">All Regions</a>
+            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
+              <% uniqueRegions.forEach(function(region) { %>
+                <a href="/regional?region=<%= region %>"><%= region %></a>
+              <% }); %>
+            <% } else { %>
+              <div class="dropdown-empty">No regional posts available</div>
+            <% } %>
+          </div>
+        </div>
+        <a href="/registration" class="nav-button">Registration</a>
+        <a href="/profile" class="nav-button profile-button"><i class="fas fa-user-circle"></i> Profile</a>
+        <a href="/logout" class="nav-button logout-button">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="profile-container">
+      <div class="profile-card">
+        <div id="messageContainer" class="message"></div>
+        
+        <!-- Profile View -->
+        <div id="profileView">
+          <div class="profile-header">
+            <div class="profile-picture-container">
+              <img src="<%= profilePicture %>" alt="Profile Picture" class="profile-picture" id="profileImage">
+              <div class="change-picture" id="changePictureBtn">Change Picture</div>
+            </div>
+            <h1 class="username">@<%= user.username %></h1>
+            <div class="fullname"><%= user.fullName %></div>
+            <div class="email"><%= user.email %></div>
+          </div>
+          
+          <div class="profile-section">
+            <h2 class="section-title">Personal Information</h2>
+            
+            <div class="info-group">
+              <div class="info-label">Age</div>
+              <div class="info-value">
+                <% if (age) { %>
+                  <%= age %> years old
+                  (Born: <%= user.birthDate.month %>/<%= user.birthDate.year %>)
+                <% } else { %>
+                  <span class="not-provided">Not provided</span>
+                <% } %>
+              </div>
+            </div>
+            
+            <div class="info-group">
+              <div class="info-label">School</div>
+              <div class="info-value">
+                <% if (user.school) { %>
+                  <%= user.school %>
+                <% } else { %>
+                  <span class="not-provided">Not provided</span>
+                <% } %>
+              </div>
+            </div>
+            
+            <div class="info-group">
+              <div class="info-label">Address</div>
+              <div class="info-value">
+                <% if (user.address) { %>
+                  <%= user.address %>
+                <% } else { %>
+                  <span class="not-provided">Not provided</span>
+                <% } %>
+              </div>
+            </div>
+          </div>
+          
+          <% if (typeof registrations !== 'undefined' && registrations.length > 0) { %>
+            <div class="profile-section">
+              <h2 class="section-title">Registration Status</h2>
+              
+              <% registrations.forEach(function(reg) { %>
+                <div class="registration-card">
+                  <div class="registration-header">
+                    <h3>Registration #<%= reg._id.toString().substring(0, 8) %></h3>
+                    <span class="registration-date">
+                      Registered on: <%= new Date(reg.registeredAt).toLocaleDateString() %>
+                    </span>
+                    <% if (reg.denied) { %>
+                      <span class="verification-status denied">Denied</span>
+                    <% } else if (reg.verified) { %>
+                      <span class="verification-status verified">Verified</span>
+                    <% } else { %>
+                      <span class="verification-status unverified">Pending Verification</span>
+                    <% } %>
+                  </div>
+                  
+                  <div class="registration-details">
+                    <div class="reg-detail-item">
+                      <strong>Type:</strong>
+                      <% 
+                        let regType = [];
+                        if (reg.competition && reg.competition.length > 0) regType.push('Competition');
+                        if (reg.workshop) regType.push('Workshop/Seminar');
+                        if (regType.length === 0) regType.push('Event Registration');
+                      %>
+                      <%= regType.join(' & ') %>
+                    </div>
+                    
+                    <% if (reg.competition && reg.competition.length > 0) { %>
+                      <div class="reg-detail-item">
+                        <strong>Competition Categories:</strong>
+                        <ul class="reg-list">
+                          <% reg.competition.forEach(function(comp) { %>
+                            <li><%= comp %></li>
+                          <% }); %>
+                          <% if (reg.other_competition) { %>
+                            <li>Other: <%= reg.other_competition %></li>
+                          <% } %>
+                        </ul>
+                      </div>
+                    <% } %>
+                    
+                    <% if (reg.workshop) { %>
+                      <div class="reg-detail-item">
+                        <strong>Workshop/Seminar:</strong>
+                        <% if (Array.isArray(reg.workshop)) { %>
+                          <ul class="reg-list">
+                            <% reg.workshop.forEach(function(workshopItem) { %>
+                              <li><%= workshopItem %></li>
+                            <% }); %>
+                            <% if (reg.other_workshop) { %>
+                              <li>Other: <%= reg.other_workshop %></li>
+                            <% } %>
+                          </ul>
+                        <% } else { %>
+                          <%= reg.workshop %>
+                          <% if (reg.other_workshop) { %>
+                            - <%= reg.other_workshop %>
+                          <% } %>
+                        <% } %>
+                      </div>
+                    <% } %>
+                    
+                    <% if (reg.denied) { %>
+                      <div class="reg-detail-item denial-info">
+                        <strong>Denied Reason:</strong> <%= reg.deniedReason %><br>
+                        <% if (reg.deniedMessage) { %>
+                          <strong>Additional Details:</strong> "<%= reg.deniedMessage %>"<br>
+                        <% } %>
+                        <span class="verification-info">
+                          <strong>Denied by:</strong> <%= reg.deniedBy %><br>
+                          <strong>Denied on:</strong> <%= new Date(reg.deniedAt).toLocaleString() %>
+                        </span>
+                        <div class="denial-action">
+                          <p class="resubmit-message">Please contact the administrator if you believe there was a mistake or if you've fixed the issue.</p>
+                        </div>
+                      </div>
+                    <% } else if (reg.verified && reg.verifiedAt) { %>
+                      <div class="reg-detail-item verification-info">
+                        <strong>Verified by:</strong> <%= reg.verifiedBy %>
+                        <br>
+                        <strong>Verified on:</strong> <%= new Date(reg.verifiedAt).toLocaleString() %>
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          <% } %>
+          
+          <div class="profile-section">
+            <h2 class="section-title">Account Security</h2>
+            <button class="edit-profile-btn" id="changePasswordBtn" style="background-color: #ff9800; margin-right: 10px;">Change Password</button>
+            <button class="edit-profile-btn" id="editProfileBtn">Edit Profile</button>
+          </div>
+        </div>
+        
+        <!-- Edit Profile Form -->
+        <div id="editProfileForm">
+          <h2 class="section-title">Edit Profile</h2>
+          
+          <form id="profileUpdateForm" enctype="multipart/form-data">
+            <input type="file" id="profilePictureInput" name="profilePicture" accept="image/*">
+            
+            <div class="form-group">
+              <label>Birth Date</label>
+              <div class="form-row">
+                <div class="form-col">
+                  <select name="birthMonth" id="birthMonth">
+                    <option value="">Select Month</option>
+                    <option value="1" <%= user.birthDate && user.birthDate.month === 1 ? 'selected' : '' %>>January</option>
+                    <option value="2" <%= user.birthDate && user.birthDate.month === 2 ? 'selected' : '' %>>February</option>
+                    <option value="3" <%= user.birthDate && user.birthDate.month === 3 ? 'selected' : '' %>>March</option>
+                    <option value="4" <%= user.birthDate && user.birthDate.month === 4 ? 'selected' : '' %>>April</option>
+                    <option value="5" <%= user.birthDate && user.birthDate.month === 5 ? 'selected' : '' %>>May</option>
+                    <option value="6" <%= user.birthDate && user.birthDate.month === 6 ? 'selected' : '' %>>June</option>
+                    <option value="7" <%= user.birthDate && user.birthDate.month === 7 ? 'selected' : '' %>>July</option>
+                    <option value="8" <%= user.birthDate && user.birthDate.month === 8 ? 'selected' : '' %>>August</option>
+                    <option value="9" <%= user.birthDate && user.birthDate.month === 9 ? 'selected' : '' %>>September</option>
+                    <option value="10" <%= user.birthDate && user.birthDate.month === 10 ? 'selected' : '' %>>October</option>
+                    <option value="11" <%= user.birthDate && user.birthDate.month === 11 ? 'selected' : '' %>>November</option>
+                    <option value="12" <%= user.birthDate && user.birthDate.month === 12 ? 'selected' : '' %>>December</option>
+                  </select>
+                </div>
+                
+                <div class="form-col">
+                  <select name="birthYear" id="birthYear">
+                    <option value="">Select Year</option>
+                    <% 
+                      const currentYear = new Date().getFullYear();
+                      for (let year = currentYear - 80; year <= currentYear - 5; year++) { 
+                    %>
+                      <option value="<%= year %>" <%= user.birthDate && user.birthDate.year === year ? 'selected' : '' %>><%= year %></option>
+                    <% } %>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="school">School</label>
+              <input type="text" id="school" name="school" value="<%= user.school || '' %>">
+            </div>
+            
+            <div class="form-group">
+              <label for="address">Address</label>
+              <textarea id="address" name="address"><%= user.address || '' %></textarea>
+            </div>
+            
+            <div class="action-buttons">
+              <button type="button" class="cancel-btn" id="cancelEditBtn">Cancel</button>
+              <button type="submit" class="save-btn">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="fixed-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+      <div class="footer-right">
+        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+        <div class="social-icons">
+          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const profileView = document.getElementById('profileView');
+    const editProfileForm = document.getElementById('editProfileForm');
+    const editProfileBtn = document.getElementById('editProfileBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const changePictureBtn = document.getElementById('changePictureBtn');
+    const profilePictureInput = document.getElementById('profilePictureInput');
+    const profileImage = document.getElementById('profileImage');
+    const messageContainer = document.getElementById('messageContainer');
+    
+    // Handle dropdowns
+    const dropdowns = document.querySelectorAll('.dropdown');
+    
+    dropdowns.forEach(dropdown => {
+      const btn = dropdown.querySelector('.dropdown-btn');
+      const content = dropdown.querySelector('.dropdown-content');
+      
+      // Show dropdown on hover
+      dropdown.addEventListener('mouseenter', () => {
+        content.style.display = 'block';
+      });
+      
+      // Hide dropdown when mouse leaves
+      dropdown.addEventListener('mouseleave', () => {
+        content.style.display = 'none';
+      });
+    });
+    
+    // Check if user is logged in using a cookie check
+    function checkLoginStatus() {
+      const isLoggedIn = document.cookie.split(';').some(function(item) { 
+          return item.trim().startsWith('robolution_session=');
+      }) || localStorage.getItem('isLoggedIn') === 'true';
+      
+      const loginButton = document.querySelector('.login-button');
+      const signupButton = document.querySelector('.signup-button');
+      const logoutButton = document.querySelector('.logout-button');
+      const profileButton = document.querySelector('.profile-button');
+      
+      if (isLoggedIn) {
+        // User is logged in
+        if (loginButton) loginButton.style.display = 'none';
+        if (signupButton) signupButton.style.display = 'none';
+        if (logoutButton) logoutButton.style.display = 'inline-block';
+        if (profileButton) profileButton.style.display = 'inline-block';
+      } else {
+        // User is not logged in
+        if (loginButton) loginButton.style.display = 'inline-block';
+        if (signupButton) signupButton.style.display = 'inline-block';
+        if (logoutButton) logoutButton.style.display = 'none';
+        if (profileButton) profileButton.style.display = 'none';
+      }
+    }
+    
+    // Run login status check
+    checkLoginStatus();
+    
+    // Edit profile button click
+    editProfileBtn.addEventListener('click', function() {
+      profileView.style.display = 'none';
+      editProfileForm.style.display = 'block';
+    });
+    
+    // Cancel edit button click
+    cancelEditBtn.addEventListener('click', function() {
+      editProfileForm.style.display = 'none';
+      profileView.style.display = 'block';
+    });
+    
+    // Change picture button click
+    changePictureBtn.addEventListener('click', function() {
+      profilePictureInput.click();
+    });
+    
+    // Profile picture input change
+    profilePictureInput.addEventListener('change', function() {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          profileImage.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    // Form submission
+    document.getElementById('profileUpdateForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      
+      // Show loading state
+      const saveBtn = this.querySelector('.save-btn');
+      const originalText = saveBtn.textContent;
+      saveBtn.textContent = 'Saving...';
+      saveBtn.disabled = true;
+      
+      fetch('/profile/update', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Reset button state
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+        
+        if (data.success) {
+          showMessage('Profile updated successfully!', 'success');
+          
+          // Switch back to view mode after a delay
+          setTimeout(() => {
+            editProfileForm.style.display = 'none';
+            profileView.style.display = 'block';
+            
+            // Reload page to reflect changes
+            window.location.reload();
+          }, 2000);
+        } else {
+          showMessage(data.message || 'An error occurred while updating profile', 'error');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+        showMessage('An error occurred while updating profile', 'error');
+      });
+    });
+    
+    // Helper function to show messages
+    function showMessage(message, type) {
+      messageContainer.textContent = message;
+      messageContainer.className = 'message ' + type;
+      messageContainer.style.display = 'block';
+      
+      // Hide message after 5 seconds
+      setTimeout(() => {
+        messageContainer.style.display = 'none';
+      }, 5000);
+    }
+    
+    // Password change functionality
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    const changePasswordModal = document.getElementById('changePasswordModal');
+    
+    changePasswordBtn.addEventListener('click', function() {
+      changePasswordModal.style.display = 'block';
+      document.getElementById('changePasswordForm').reset();
+      document.getElementById('passwordChangeError').style.display = 'none';
+      document.getElementById('passwordChangeSuccess').style.display = 'none';
+    });
+    
+    function closeChangePasswordModal() {
+      changePasswordModal.style.display = 'none';
+    }
+    
+    // Close modal when clicking outside of it
+    changePasswordModal.addEventListener('click', function(event) {
+      if (event.target === changePasswordModal) {
+        closeChangePasswordModal();
+      }
+    });
+    
+    // Handle escape key to close modal
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape' && changePasswordModal.style.display === 'block') {
+        closeChangePasswordModal();
+      }
+    });
+    
+    // Handle password change form submission
+    document.getElementById('changePasswordForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const errorElement = document.getElementById('passwordChangeError');
+      const successElement = document.getElementById('passwordChangeSuccess');
+      
+      // Clear previous messages
+      errorElement.style.display = 'none';
+      successElement.style.display = 'none';
+      
+      // Validate passwords
+      if (newPassword.length < 8) {
+        errorElement.textContent = 'New password must be at least 8 characters long.';
+        errorElement.style.display = 'block';
+        return;
+      }
+      
+      if (newPassword !== confirmPassword) {
+        errorElement.textContent = 'New passwords do not match.';
+        errorElement.style.display = 'block';
+        return;
+      }
+      
+      // Submit the form via fetch API
+      fetch('/profile/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          successElement.textContent = data.message || 'Password changed successfully!';
+          successElement.style.display = 'block';
+          document.getElementById('changePasswordForm').reset();
+          
+          // Automatically close the modal after 3 seconds
+          setTimeout(() => {
+            closeChangePasswordModal();
+          }, 3000);
+        } else {
+          errorElement.textContent = data.message || 'An error occurred while changing the password.';
+          errorElement.style.display = 'block';
+        }
+      })
+      .catch(error => {
+        errorElement.textContent = 'An error occurred while changing the password.';
+        errorElement.style.display = 'block';
+        console.error('Error:', error);
+      });
+    });
+  });
+</script>
+
+<!-- Change Password Modal -->
+<div id="changePasswordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 30px; border-radius: 8px; width: 400px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #00008b; padding-bottom: 15px;">
+      <h2 style="margin: 0; color: #00008b;">Change Password</h2>
+      <button onclick="closeChangePasswordModal()" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+    </div>
+    
+    <div id="passwordChangeError" style="color: #e74c3c; background: #f8d7da; border-radius: 4px; padding: 10px; display: none; margin-bottom: 15px;"></div>
+    <div id="passwordChangeSuccess" style="color: #155724; background: #d4edda; border-radius: 4px; padding: 10px; display: none; margin-bottom: 15px;"></div>
+    
+    <form id="changePasswordForm">
+      <div style="margin-bottom: 15px;">
+        <label for="currentPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">Current Password</label>
+        <input type="password" id="currentPassword" name="currentPassword" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-bottom: 15px;">
+        <label for="newPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">New Password</label>
+        <input type="password" id="newPassword" name="newPassword" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <label for="confirmPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">Confirm New Password</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button type="submit" style="padding: 10px; background-color: #00008b; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Change Password</button>
+        <button type="button" onclick="closeChangePasswordModal()" style="padding: 10px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+</body>
+</html> 

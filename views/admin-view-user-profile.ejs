@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= userProfile.fullName %> | User Profile</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    body {
+      background-color: #f5f7fa;
+    }
+    
+    .profile-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      margin-top: 100px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .profile-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 20px;
+    }
+    
+    .profile-actions {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 10px 15px;
+      border-radius: 4px;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary {
+      background-color: #00008b;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: #00006b;
+    }
+    
+    .btn-secondary {
+      background-color: #f8f9fa;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #e9ecef;
+    }
+    
+    .profile-body {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 30px;
+    }
+    
+    .profile-sidebar {
+      text-align: center;
+    }
+    
+    .profile-picture {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-bottom: 20px;
+      border: 5px solid #f5f7fa;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .profile-username {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .profile-email {
+      color: #666;
+      margin-bottom: 20px;
+    }
+    
+    .profile-details {
+      padding-top: 10px;
+    }
+    
+    .detail-group {
+      margin-bottom: 25px;
+    }
+    
+    .detail-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #00008b;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    
+    .detail-item {
+      display: flex;
+      margin-bottom: 15px;
+    }
+    
+    .detail-label {
+      width: 120px;
+      font-weight: 500;
+      color: #555;
+    }
+    
+    .detail-value {
+      flex: 1;
+    }
+    
+    .breadcrumb {
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    
+    .breadcrumb a {
+      color: #00008b;
+      text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+      text-decoration: underline;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 10px;
+    }
+    
+    .status-badge.enabled {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .status-badge.disabled {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    /* Dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .dropdown-btn {
+      cursor: pointer;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 220px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 4px;
+      padding: 8px 0;
+    }
+    
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+      transition: background-color 0.2s ease;
+    }
+    
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+    
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+    
+    .dropdown-empty {
+      padding: 12px 16px;
+      color: #666;
+      font-style: italic;
+    }
+    
+    @media (max-width: 768px) {
+      .profile-body {
+        grid-template-columns: 1fr;
+      }
+      
+      .profile-sidebar {
+        margin-bottom: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
+        <a href="/index" class="nav-button">News</a>
+        <a href="/categories" class="nav-button">Categories</a>
+        <a href="/manage-categories" class="nav-button">Manage Categories</a>
+        <a href="/manage-registrations" class="nav-button">Manage Registration</a>
+        <a href="/manage-accounts" class="nav-button">Accounts</a>
+        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <a href="/admin-regional?region=All">All Regions</a>
+            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
+              <% uniqueRegions.forEach(function(region) { %>
+                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
+              <% }); %>
+            <% } else { %>
+              <div class="dropdown-empty">No regional posts available</div>
+            <% } %>
+          </div>
+        </div>
+        <a href="/logout" class="nav-button logout-button">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="profile-container">
+    <div class="breadcrumb">
+      <a href="/admin/user-profiles">User Profiles</a> &gt; <%= userProfile.fullName %>
+    </div>
+    
+    <div class="profile-header">
+      <h1><%= userProfile.fullName %>'s Profile</h1>
+      <div class="profile-actions">
+        <a href="/admin/user-profiles/<%= userProfile._id %>/edit" class="btn btn-primary">
+          <i class="fas fa-edit"></i> Edit Profile
+        </a>
+        <a href="/admin/user-profiles" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Back to List
+        </a>
+      </div>
+    </div>
+
+    <div class="profile-body">
+      <div class="profile-sidebar">
+        <img 
+          src="<%= profilePicture %>" 
+          alt="<%= userProfile.fullName %>" 
+          class="profile-picture"
+        >
+        <div class="profile-username"><%= userProfile.username %></div>
+        <div class="profile-email"><%= userProfile.email %></div>
+        <div>
+          2FA: 
+          <% if (userProfile.twoFactorEnabled) { %>
+            <span class="status-badge enabled">Enabled</span>
+          <% } else { %>
+            <span class="status-badge disabled">Disabled</span>
+          <% } %>
+        </div>
+      </div>
+      
+      <div class="profile-details">
+        <div class="detail-group">
+          <h2 class="detail-title">Personal Information</h2>
+          
+          <div class="detail-item">
+            <div class="detail-label">Full Name:</div>
+            <div class="detail-value"><%= userProfile.fullName %></div>
+          </div>
+          
+          <% if (age !== null) { %>
+          <div class="detail-item">
+            <div class="detail-label">Age:</div>
+            <div class="detail-value"><%= age %> years old</div>
+          </div>
+          <% } %>
+          
+          <div class="detail-item">
+            <div class="detail-label">Birth Date:</div>
+            <div class="detail-value">
+              <% if (userProfile.birthDate && userProfile.birthDate.month && userProfile.birthDate.year) { %>
+                <%= userProfile.birthDate.month %>/<%= userProfile.birthDate.year %>
+              <% } else { %>
+                Not specified
+              <% } %>
+            </div>
+          </div>
+        </div>
+        
+        <div class="detail-group">
+          <h2 class="detail-title">Contact & Education</h2>
+          
+          <div class="detail-item">
+            <div class="detail-label">Email:</div>
+            <div class="detail-value"><%= userProfile.email %></div>
+          </div>
+          
+          <div class="detail-item">
+            <div class="detail-label">School:</div>
+            <div class="detail-value"><%= userProfile.school || 'Not specified' %></div>
+          </div>
+          
+          <div class="detail-item">
+            <div class="detail-label">Address:</div>
+            <div class="detail-value"><%= userProfile.address || 'Not specified' %></div>
+          </div>
+        </div>
+        
+        <div class="detail-group">
+          <h2 class="detail-title">Account Information</h2>
+          
+          <div class="detail-item">
+            <div class="detail-label">Username:</div>
+            <div class="detail-value"><%= userProfile.username %></div>
+          </div>
+          
+          <div class="detail-item">
+            <div class="detail-label">2FA Status:</div>
+            <div class="detail-value">
+              <% if (userProfile.twoFactorEnabled) { %>
+                <span style="color: green; font-weight: bold;">Enabled</span>
+              <% } else { %>
+                <span style="color: red;">Disabled</span>
+              <% } %>
+            </div>
+          </div>
+          
+          <div class="detail-item">
+            <div class="detail-label">Created:</div>
+            <div class="detail-value">
+              <% if (userProfile.createdAt) { %>
+                <%= new Date(userProfile.createdAt).toLocaleDateString() %>
+                <%= new Date(userProfile.createdAt).toLocaleTimeString() %>
+              <% } else { %>
+                Unknown
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Handle dropdowns
+      const dropdowns = document.querySelectorAll('.dropdown');
+      
+      dropdowns.forEach(dropdown => {
+        const btn = dropdown.querySelector('.dropdown-btn');
+        const content = dropdown.querySelector('.dropdown-content');
+        
+        // Show dropdown on hover
+        dropdown.addEventListener('mouseenter', () => {
+          content.style.display = 'block';
+        });
+        
+        // Hide dropdown when mouse leaves
+        dropdown.addEventListener('mouseleave', () => {
+          content.style.display = 'none';
+        });
+      });
+      
+      // Verify authentication
+      fetch('/api/check-session?t=' + new Date().getTime(), { 
+        credentials: 'same-origin',
+        headers: { 'Cache-Control': 'no-cache' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (!data.authenticated) {
+          localStorage.removeItem('isLoggedIn');
+          window.location.href = '/login?expired=true&redirect=' + encodeURIComponent(window.location.pathname);
+        }
+      })
+      .catch(error => {
+        console.error('Session check error:', error);
+      });
+    });
+  </script>
+</body>
+</html> 

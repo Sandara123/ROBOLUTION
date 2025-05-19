@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Post | Robolution</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .dropdown-btn {
+      cursor: pointer;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 220px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 4px;
+      padding: 8px 0;
+    }
+    
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+      transition: background-color 0.2s ease;
+    }
+    
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+    
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+    
+    .dropdown-empty {
+      padding: 12px 16px;
+      color: #666;
+      font-style: italic;
+    }
+
+    /* Header nav styles */
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-button {
+      padding: 8px 16px;
+      border-radius: 4px;
+      text-decoration: none;
+      color: white;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: background-color 0.2s;
+    }
+
+    .nav-button:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .create-post-button {
+      background-color: #4CAF50;
+    }
+
+    .create-post-button:hover {
+      background-color: #45a049;
+    }
+
+    .logout-button {
+      background-color: #f44336;
+    }
+
+    .logout-button:hover {
+      background-color: #da190b;
+    }
+  </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Handle image upload
+      const uploadContainer = document.getElementById('uploadContainer');
+      const imageUpload = document.getElementById('imageUpload');
+      const uploadPreview = document.getElementById('uploadPreview');
+      const currentImageUrl = document.getElementById('currentImageUrl');
+
+      if (uploadContainer && imageUpload && uploadPreview) {
+        setupImageUpload(uploadContainer, imageUpload, uploadPreview);
+      }
+      
+      function setupImageUpload(container, input, preview) {
+        container.addEventListener('click', () => input.click());
+
+        container.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          container.classList.add('dragover');
+        });
+
+        container.addEventListener('dragleave', () => {
+          container.classList.remove('dragover');
+        });
+
+        container.addEventListener('drop', (e) => {
+          e.preventDefault();
+          container.classList.remove('dragover');
+          if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            showPreview(e.dataTransfer.files[0], preview);
+          }
+        });
+
+        input.addEventListener('change', function() {
+          if (this.files && this.files[0]) {
+            showPreview(this.files[0], preview);
+          }
+        });
+      }
+
+      function showPreview(file, previewElement) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          previewElement.innerHTML = `<div class="image-preview-container"><img src="${e.target.result}" style="max-width:100%;max-height:120px;border-radius:8px;"><button type="button" class="delete-image-btn" onclick="removePreview()">✕</button></div>`;
+        };
+        reader.readAsDataURL(file);
+      }
+
+      // Handle date checkbox
+      const useCurrentDateCheckbox = document.getElementById('useCurrentDate');
+      const customDateInput = document.getElementById('customDateInput');
+      
+      if (useCurrentDateCheckbox && customDateInput) {
+        useCurrentDateCheckbox.addEventListener('change', function() {
+          customDateInput.style.display = this.checked ? 'none' : 'block';
+        });
+      }
+
+      // Handle dropdowns
+      const dropdowns = document.querySelectorAll('.dropdown');
+      dropdowns.forEach(dropdown => {
+        const btn = dropdown.querySelector('.dropdown-btn');
+        const content = dropdown.querySelector('.dropdown-content');
+        
+        // Show dropdown on hover
+        dropdown.addEventListener('mouseenter', () => {
+          content.style.display = 'block';
+        });
+        
+        // Hide dropdown when mouse leaves
+        dropdown.addEventListener('mouseleave', () => {
+          content.style.display = 'none';
+        });
+      });
+    });
+
+    // Function to remove image preview
+    function removePreview() {
+      const uploadPreview = document.getElementById('uploadPreview');
+      const fileInput = document.getElementById('imageUpload');
+      const postId = document.getElementById('postId').value;
+      const currentImageUrl = document.getElementById('currentImageUrl').value;
+      
+      if (!confirm('Are you sure you want to remove this image?')) {
+        return;
+      }
+      
+      fetch(`/posts/${postId}/delete-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ imageUrl: currentImageUrl })
+      })
+      .then(response => response.json())
+      .then(result => {
+        if (result.success) {
+          uploadPreview.innerHTML = 'Drag & Drop or Click to Add Photo';
+          document.getElementById('currentImageUrl').value = '/images/default-post.jpg';
+          if (fileInput) {
+            fileInput.value = '';
+          }
+        } else {
+          alert(result.error || 'Failed to delete image');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting image');
+      });
+    }
+  </script>
+</head>
+<body>
+<div class="content-wrapper">
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
+        <a href="/index" class="nav-button">News</a>
+        <a href="/categories" class="nav-button">Categories</a>
+        <a href="/manage-categories" class="nav-button">Manage Categories</a>
+        <a href="/manage-registrations" class="nav-button">Manage Registration</a>
+        <a href="/manage-accounts" class="nav-button">Accounts</a>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
+              <a href="/admin-regional?region=All">All Regions</a>
+              <% uniqueRegions.forEach(function(region) { %>
+                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
+              <% }); %>
+            <% } else { %>
+              <div class="dropdown-empty">No regional posts available</div>
+            <% } %>
+          </div>
+        </div>
+        <a href="/logout" class="nav-button logout-button">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-create">
+    <section>
+      <h2>Edit Post</h2>
+      <input type="hidden" id="postId" value="<%= post._id %>">
+      
+      <form action="/edit-post/<%= post._id %>" method="POST" enctype="multipart/form-data" class="post-form">
+        <input type="text" name="title" value="<%= post.title %>" required><br>
+        <textarea name="content" required><%= post.content %></textarea><br>
+        <input type="text" name="author" value="<%= post.author %>" required><br>
+        
+        <div class="form-group">
+          <label for="region">Region:</label>
+          <select name="region" id="region">
+            <option value="All" <%= post.region === 'All' ? 'selected' : '' %>>All Regions</option>
+            <option value="Region I" <%= post.region === 'Region I' ? 'selected' : '' %>>Region I (Ilocos Region)</option>
+            <option value="Region II" <%= post.region === 'Region II' ? 'selected' : '' %>>Region II (Cagayan Valley)</option>
+            <option value="Region III" <%= post.region === 'Region III' ? 'selected' : '' %>>Region III (Central Luzon)</option>
+            <option value="Region IV-A" <%= post.region === 'Region IV-A' ? 'selected' : '' %>>Region IV-A (CALABARZON)</option>
+            <option value="Region IV-B" <%= post.region === 'Region IV-B' ? 'selected' : '' %>>Region IV-B (MIMAROPA)</option>
+            <option value="Region V" <%= post.region === 'Region V' ? 'selected' : '' %>>Region V (Bicol Region)</option>
+            <option value="Region VI" <%= post.region === 'Region VI' ? 'selected' : '' %>>Region VI (Western Visayas)</option>
+            <option value="Region VII" <%= post.region === 'Region VII' ? 'selected' : '' %>>Region VII (Central Visayas)</option>
+            <option value="Region VIII" <%= post.region === 'Region VIII' ? 'selected' : '' %>>Region VIII (Eastern Visayas)</option>
+            <option value="Region IX" <%= post.region === 'Region IX' ? 'selected' : '' %>>Region IX (Zamboanga Peninsula)</option>
+            <option value="Region X" <%= post.region === 'Region X' ? 'selected' : '' %>>Region X (Northern Mindanao)</option>
+            <option value="Region XI" <%= post.region === 'Region XI' ? 'selected' : '' %>>Region XI (Davao Region)</option>
+            <option value="Region XII" <%= post.region === 'Region XII' ? 'selected' : '' %>>Region XII (SOCCSKSARGEN)</option>
+            <option value="Region XIII" <%= post.region === 'Region XIII' ? 'selected' : '' %>>Region XIII (Caraga)</option>
+            <option value="NCR" <%= post.region === 'NCR' ? 'selected' : '' %>>National Capital Region (NCR)</option>
+            <option value="CAR" <%= post.region === 'CAR' ? 'selected' : '' %>>Cordillera Administrative Region (CAR)</option>
+            <option value="BARMM" <%= post.region === 'BARMM' ? 'selected' : '' %>>Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)</option>
+          </select>
+        </div><br>
+        
+        <div class="upload-container" id="uploadContainer">
+          <input type="file" name="image" id="imageUpload" accept="image/*" style="display:none;">
+          <input type="hidden" name="currentImageUrl" id="currentImageUrl" value="<%= post.imageUrl %>">
+          <div id="uploadPreview" class="upload-preview">
+            <% if (post.imageUrl) { %>
+              <div class="image-preview-container">
+                <img src="<%= post.imageUrl %>" alt="<%= post.title %>">
+                <button type="button" class="delete-image-btn" onclick="removePreview()">✕</button>
+              </div>
+            <% } else { %>
+              Drag & Drop or Click to Add Photo
+            <% } %>
+          </div>
+        </div>
+        <br>
+
+        <div>
+          <label for="useCurrentDate">Use Current Date:</label>
+          <input type="checkbox" id="useCurrentDate" name="useCurrentDate">
+        </div><br>
+
+        <div id="customDateInput" style="display: block;">
+          <label for="date">Custom Date:</label>
+          <input type="date" id="date" name="date" value="<%= new Date(post.createdAt).toISOString().split('T')[0] %>">
+        </div><br>
+
+        <input type="submit" value="Update Post" class="submit-btn">
+      </form>
+
+      <br>
+      <a href="/index"><button class="back-btn">← Go Back</button></a>
+    </section>
+  </main>
+
+  <footer class="footer-simple">
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+      <div class="footer-right">
+        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+        <div class="social-icons">
+          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+</body>
+</html> 

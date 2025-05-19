@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Factor Authentication Success</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f5ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 70, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            animation: fadeIn 0.5s;
+            text-align: center;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h1 {
+            color: #001f5c;
+            margin-bottom: 20px;
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background-color: #28a745;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin: 0 auto 20px;
+        }
+        
+        p {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .backup-codes {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff9e6;
+            border: 1px solid #ffe0a6;
+            border-radius: 5px;
+            text-align: left;
+        }
+        
+        .backup-codes h3 {
+            margin-top: 0;
+            color: #856404;
+            text-align: center;
+        }
+        
+        .backup-codes ul {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 5px;
+        }
+        
+        .backup-codes li {
+            font-family: monospace;
+            padding: 5px;
+            background-color: #fff;
+            border: 1px solid #ffe0a6;
+            border-radius: 3px;
+            text-align: center;
+        }
+        
+        .backup-warning {
+            margin-top: 10px;
+            color: #856404;
+            font-weight: bold;
+        }
+        
+        .button {
+            background-color: #003399;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: inline-block;
+            text-decoration: none;
+            margin-top: 20px;
+        }
+        
+        .button:hover {
+            background-color: #00286b;
+        }
+        
+        .print-button {
+            background-color: #6c757d;
+            margin-right: 10px;
+        }
+        
+        .print-button:hover {
+            background-color: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✓</div>
+        
+        <h1>2FA Setup Successful!</h1>
+        
+        <p><%= message %></p>
+        
+        <p>You have successfully enabled two-factor authentication for your account. Your account is now more secure.</p>
+        
+        <% if (locals.backupCodes && backupCodes.length > 0) { %>
+        <div class="backup-codes">
+            <h3>Backup Codes</h3>
+            <p>Store these backup codes in a safe place. You can use them if you lose access to your authenticator app.</p>
+            
+            <ul>
+                <% backupCodes.forEach(function(code) { %>
+                    <li><%= code %></li>
+                <% }); %>
+            </ul>
+            
+            <p class="backup-warning">Each code can be used only once.</p>
+        </div>
+        
+        <button class="button print-button" onclick="window.print();">Print Backup Codes</button>
+        <% } %>
+        
+        <a href="<%= redirectUrl || '/' %>" class="button">Continue to Dashboard</a>
+    </div>
+    
+    <script>
+        // Automatically redirect after a delay
+        setTimeout(function() {
+            window.location.href = '<%= redirectUrl || "/" %>';
+        }, 10000);  // 10 seconds
+        
+        // Store login status in localStorage
+        try {
+            localStorage.setItem('isLoggedIn', 'true');
+        } catch (e) {
+            console.error('Could not save to localStorage:', e);
+        }
+    </script>
+</body>
+</html> 

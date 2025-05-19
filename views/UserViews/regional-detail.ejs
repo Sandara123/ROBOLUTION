@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title><%= post.title %> | Regional Event - Robolution</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/script.js" defer></script>
+  <style>
+    body, main {
+      background-color: #ffffff;
+      background-image: none;
+    }
+    
+    .post-detail-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 120px 20px 40px;
+    }
+    
+    .post-header {
+      margin-bottom: 40px;
+    }
+    
+    .post-title {
+      font-size: 2.5rem;
+      color: #00008b;
+      margin-bottom: 15px;
+      line-height: 1.2;
+    }
+    
+    .post-meta {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+      font-size: 0.95rem;
+      color: #666;
+      margin-bottom: 20px;
+    }
+    
+    .post-meta-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .post-meta-item:not(:last-child)::after {
+      content: "•";
+      margin-left: 15px;
+      color: #ccc;
+    }
+    
+    .post-region {
+      display: inline-block;
+      background-color: #00008b;
+      color: white;
+      padding: 3px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      margin-right: 5px;
+    }
+    
+    .post-image {
+      width: 100%;
+      max-height: 500px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .post-content {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      color: #333;
+      margin-bottom: 40px;
+      white-space: pre-line;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      text-align: justify;
+    }
+    
+    .post-content p {
+      margin-bottom: 20px;
+      white-space: pre-line;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      text-align: justify;
+    }
+    
+    /* Improve readability for long text */
+    .post-content {
+      max-width: 800px;
+      margin: 0 auto 40px;
+      padding: 0 20px;
+    }
+
+    /* Add proper spacing between paragraphs */
+    .post-content p:not(:last-child) {
+      margin-bottom: 1.5em;
+    }
+
+    /* Ensure images don't overflow */
+    .post-image {
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto 2em;
+      display: block;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .back-button {
+      display: inline-block;
+      background-color: #00008b;
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      margin-top: 20px;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+    
+    .back-button:hover {
+      background-color: #1a5a8d;
+    }
+    
+    .share-section {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      margin-bottom: 80px;
+    }
+    
+    .share-title {
+      font-size: 1.2rem;
+      color: #00008b;
+      margin-bottom: 15px;
+    }
+    
+    .share-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .share-button {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 4px;
+      color: white;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    
+    .share-facebook {
+      background-color: #3b5998;
+    }
+    
+    .share-twitter {
+      background-color: #1da1f2;
+    }
+    
+    .share-linkedin {
+      background-color: #0077b5;
+    }
+    
+    /* Dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .dropdown-btn {
+      cursor: pointer;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 160px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 4px;
+    }
+    
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+    }
+    
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+    
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .post-title {
+        font-size: 1.8rem;
+      }
+      
+      .post-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+      }
+      
+      .post-meta-item:not(:last-child)::after {
+        display: none;
+      }
+    }
+    
+    .region-badge {
+      display: inline-block;
+      background-color: #00008b;
+      color: white;
+      padding: 3px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="content-wrapper">
+
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/user-landing" class="nav-button">News</a>
+        <a href="/user-categories" class="nav-button">Categories</a>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <a href="/regional?region=All">All Regions</a>
+            <% 
+            // Get unique regions with posts
+            let validRegions = [];
+            
+            // Extract regions from the available posts (we'll get this from the app.locals or pass it from the controller)
+            if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) {
+              validRegions = uniqueRegions;
+            } else {
+              // Fallback - current post's region
+              if (post.region && post.region !== 'All' && !validRegions.includes(post.region)) {
+                validRegions.push(post.region);
+              }
+            }
+            
+            // Display regions with posts
+            validRegions.sort().forEach(region => { %>
+              <a href="/regional?region=<%= region %>"><%= region %></a>
+            <% }); %>
+          </div>
+        </div>
+        <a href="/registration" class="nav-button registration-button" target="_blank">Registration</a>
+        <% if (locals.user) { %>
+          <a href="/logout" class="nav-button logout-button">Logout</a>
+        <% } else { %>
+          <a href="/signup" class="nav-button signup-button">Sign Up</a>
+          <a href="/login" class="nav-button login-button">Login</a>
+        <% } %>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="post-detail-container">
+      <div class="post-header">
+        <h1 class="post-title"><%= post.title %></h1>
+        <div class="post-meta">
+          <div class="post-meta-item">
+            <span><strong>Author:</strong> <%= post.author %></span>
+          </div>
+          <div class="post-meta-item">
+            <span><strong>Posted:</strong> <%= new Date(post.createdAt).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            }) %></span>
+          </div>
+          <% if (post.region && post.region !== 'All') { %>
+          <div class="post-meta-item">
+            <span><strong>Region:</strong> <span class="post-region"><%= post.region %></span></span>
+          </div>
+          <% } %>
+        </div>
+      </div>
+      
+      <img src="<%= post.imageUrl %>" alt="<%= post.title %>" class="post-image">
+      
+      <div class="post-content">
+        <p><%= post.content %></p>
+      </div>
+      
+      <a href="/regional?region=<%= post.region %>" class="back-button">← Back to <%= post.region === 'All' ? 'All Regions' : post.region %></a>
+      
+      <div class="share-section">
+        <h3 class="share-title">Share this post</h3>
+        <div class="share-buttons">
+          <a href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(`http://${req.headers.host}${req.url}`) %>" target="_blank" class="share-button share-facebook">Facebook</a>
+          <a href="https://twitter.com/intent/tweet?url=<%= encodeURIComponent(`http://${req.headers.host}${req.url}`) %>&text=<%= encodeURIComponent(post.title) %>" target="_blank" class="share-button share-twitter">Twitter</a>
+          <a href="https://www.linkedin.com/shareArticle?mini=true&url=<%= encodeURIComponent(`http://${req.headers.host}${req.url}`) %>&title=<%= encodeURIComponent(post.title) %>" target="_blank" class="share-button share-linkedin">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+      <div class="footer-right">
+        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+        <div class="social-icons">
+          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<a href="#" class="back-to-top" id="backToTop">↑</a>
+
+<script>
+  // Script to handle back-to-top button
+  document.addEventListener('DOMContentLoaded', function() {
+    const backToTopButton = document.getElementById('backToTop');
+    
+    if (backToTopButton) {
+      // Show button when user scrolls down
+      window.addEventListener('scroll', function() {
+        if (window.pageYOffset > 300) {
+          backToTopButton.classList.add('show');
+        } else {
+          backToTopButton.classList.remove('show');
+        }
+      });
+      
+      // Smooth scroll to top when button clicked
+      backToTopButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+  });
+</script>
+</body>
+
+</html> 

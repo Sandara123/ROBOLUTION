@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2FA Already Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f5ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        .container {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 70, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #001f5c;
+            margin-bottom: 20px;
+        }
+        
+        .info-icon {
+            color: #2196F3;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+        
+        .button {
+            background-color: #003399;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .button:hover {
+            background-color: #00286b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="info-icon">ℹ</div>
+        <h1>Two-Factor Authentication</h1>
+        
+        <div class="message">
+            <%= message %>
+        </div>
+        
+        <a href="/" class="button">Go to Dashboard</a>
+    </div>
+</body>
+</html> 

@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robolution Blog</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+  <script src="/js/script.js" defer></script>
+  <script src="/js/mobile.js" defer></script>
+  <style>
+    /* Set background to white */
+    body, main {
+      background-color: #ffffff;
+      background-image: none;
+    }
+    
+    /* Dropdown styles */
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  
+  .dropdown-btn {
+    cursor: pointer;
+  }
+  
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 220px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    border-radius: 4px;
+    padding: 8px 0;
+  }
+  
+  .dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+    transition: background-color 0.2s ease;
+  }
+  
+  .dropdown-content a:hover {
+    background-color: #f1f1f1;
+  }
+  
+  .dropdown:hover .dropdown-content {
+    display: block;
+  }
+  
+  /* Year section styling */
+  .year-section {
+    margin-bottom: 40px;
+  }
+  
+  .collapsible {
+    background-color: #00008b;
+    padding: 15px 20px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    border: none;
+    width: 100%;
+    text-align: left;
+  }
+  
+  .collapsible:hover {
+    background-color: #146cb1;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  }
+  
+  .collapsible:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .collapsible::after {
+    content: "▼";
+    color: white;
+    font-size: 14px;
+    margin-left: 10px;
+    transition: transform 0.3s ease;
+  }
+  
+  .collapsible.active::after {
+    transform: rotate(180deg);
+  }
+  
+  .collapsible:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.3), 0 3px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Mobile specific styles */
+  @media (max-width: 768px) {
+    .header-content {
+      flex-direction: column;
+      padding: 10px 5px;
+    }
+    
+    .logo {
+      max-width: 150px;
+      margin-bottom: 10px;
+    }
+    
+    .header-nav {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 5px;
+    }
+    
+    .nav-button {
+      padding: 6px 10px;
+      font-size: 0.9rem;
+      margin: 2px;
+    }
+    
+    .video-section {
+      height: auto;
+      margin-top: 60px;
+    }
+    
+    .NandU-banner {
+      max-width: 90%;
+    }
+    
+    .posts-header {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 10px 15px;
+    }
+    
+    .posts-header h2 {
+      margin-bottom: 15px;
+      font-size: 1.5rem;
+    }
+    
+    .sort-form {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    
+    .sort-form label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    
+    .sort-form select {
+      width: 100%;
+      padding: 8px;
+    }
+    
+    .year-section {
+      margin-bottom: 25px;
+    }
+    
+    .collapsible {
+      padding: 12px 15px;
+      font-size: 1.3rem;
+    }
+    
+    .post-card {
+      width: 100%;
+    }
+    
+    .post-actions {
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .edit-btn, .delete-btn {
+      width: 100%;
+      text-align: center;
+    }
+    
+    .footer-content {
+      flex-direction: column;
+      padding: 15px 10px;
+      text-align: center;
+    }
+    
+    .footer-left, .footer-right {
+      width: 100%;
+      text-align: center;
+    }
+    
+    .footer-right {
+      margin-top: 15px;
+    }
+    
+    .footer-right p {
+      font-size: 0.9rem;
+      margin: 5px 0;
+    }
+    
+    .social-icons {
+      justify-content: center;
+      margin-top: 10px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .nav-button {
+      padding: 5px 8px;
+      font-size: 0.8rem;
+    }
+    
+    .collapsible {
+      font-size: 1.1rem;
+      padding: 10px 12px;
+    }
+    
+    .posts-header h2 {
+      font-size: 1.3rem;
+    }
+    
+    .video-section {
+      height: auto;
+      margin-top: 55px;
+    }
+    
+    .post-card h3 {
+      font-size: 1.2rem;
+    }
+  }
+
+  /* Registrations Table Styles */
+  .registration-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background-color: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+    .registration-table th {    background-color: #00008b;    color: white;    padding: 12px 15px;    text-align: left;    font-weight: bold;  }
+
+  .registration-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+
+  .registration-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .registration-table tr:hover {
+    background-color: #f5f9ff;
+  }
+
+  .detail-list {
+    margin: 0;
+    padding-left: 20px;
+  }
+
+  .payment-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: white;
+  }
+
+  .payment-badge.paid {
+    background-color: #27ae60;
+  }
+
+  .payment-badge.unpaid {
+    background-color: #e74c3c;
+  }
+
+  .payment-proof {
+    margin-top: 5px;
+    font-size: 0.85rem;
+  }
+
+  .filter-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+  }
+
+  .filter-group {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .filter-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+
+  .filter-group select,
+  .filter-group input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+
+    .action-button {    
+      padding: 6px 12px;    
+      color: white;    
+      border: none;    
+      border-radius: 4px;    
+      cursor: pointer;    
+      text-decoration: none;    
+      display: inline-block;
+      font-size: 0.9rem;
+      margin-bottom: 5px;
+      width: 80px;
+      text-align: center;
+    }
+
+  .action-buttons-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .action-button.view {
+    background-color: #3498db;
+  }
+
+  .action-button.edit {
+    background-color: #f39c12;
+  }
+
+  .action-button.deny {
+    background-color: #dc3545;
+  }
+
+  .action-button.delete {
+    background-color: #e74c3c;
+  }
+
+  .action-button:hover {
+    opacity: 0.9;
+  }
+
+  .json-display {
+    background-color: #f5f5f5;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+    overflow: auto;
+    max-height: 150px;
+  }
+
+  @media (max-width: 768px) {
+    .filter-section {
+      flex-direction: column;
+    }
+    
+    .registration-table {
+      display: block;
+      overflow-x: auto;
+    }
+  }
+
+  /* Verification badge styles */
+  .verification-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.85rem;
+  }
+  
+  .verification-badge.verified {
+    background-color: #d4edda;
+    color: #155724;
+  }
+  
+  .verification-badge.unverified {
+    background-color: #fff3cd;
+    color: #856404;
+  }
+
+  .verification-badge.denied {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+
+  .denial-info {
+    background-color: #fff2f1;
+    border-left: 3px solid #f8d7da;
+    padding-left: 5px;
+  }
+  
+  .verification-info {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.75rem;
+    color: #6c757d;
+  }
+  
+  .verify-link {    display: block;    margin-top: 5px;    font-size: 0.85rem;    color: #00008b;    text-decoration: underline;  }
+
+  .payment-status.unpaid {
+    background-color: #f8d7da;
+    color: #721c24;
+  }
+  
+  /* Modal styles */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 1050;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    overflow: auto;
+  }
+  
+  .modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 20px;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    position: relative;
+  }
+  
+  .modal-title {
+    margin-top: 0;
+    color: #00008b;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+  }
+  
+  .modal-close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    position: absolute;
+    right: 20px;
+    top: 15px;
+  }
+  
+  .modal-close:hover {
+    color: #000;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  
+  .form-group textarea {
+    min-height: 100px;
+  }
+  
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+    gap: 10px;
+  }
+  
+  .btn-cancel {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .btn-deny {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .action-button.deny {
+    background-color: #dc3545;
+  }
+  
+  .action-button.approve {
+    background-color: #28a745;
+    margin-top: 5px;
+  }
+  </style>
+  
+</head>
+
+<body>
+<div class="content-wrapper">
+
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <!-- Mobile menu toggle will be added by JavaScript on small screens -->
+      <nav class="header-nav">
+        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
+        <a href="/index" class="nav-button">News</a>
+        <a href="/categories" class="nav-button">Categories</a>
+        <a href="/manage-categories" class="nav-button">Manage Categories</a>
+        <a href="/manage-registrations" class="nav-button">Registrations</a>
+        <a href="/manage-accounts" class="nav-button">Accounts</a>
+        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
+        <% if (user && user.role === 'superadmin') { %>
+        <a href="/manage-backups" class="nav-button">Backups</a>
+        <% } %>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <a href="/admin-regional?region=All">All Regions</a>
+            <% 
+            // Try to get regions with posts
+            let validRegions = [];
+            
+            // Extract regions from posts
+            posts.forEach(post => {
+              if (post.region && post.region !== 'All' && !validRegions.includes(post.region)) {
+                validRegions.push(post.region);
+              }
+            });
+            
+            // Sort regions alphabetically
+            validRegions.sort();
+            
+            // Display regions with posts
+            if (validRegions.length > 0) {
+              validRegions.forEach(function(region) { %>
+                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
+              <% });
+            } else { %>
+              <div class="dropdown-empty">No regional posts available</div>
+            <% } %>
+          </div>
+        </div>
+        <a href="/logout" class="nav-button logout-button">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+<main>
+  <div class="container">
+    <h1>Manage Registrations</h1>
+    
+    <div class="filter-section">
+      <div class="filter-group">
+        <label for="category">Filter by Category:</label>
+        <select name="category" id="category" onchange="applyFilters()">
+          <option value="all" <%= category === 'all' ? 'selected' : '' %>>All Categories</option>
+          <option value="Student" <%= category === 'Student' ? 'selected' : '' %>>Student</option>
+          <option value="Professional" <%= category === 'Professional' ? 'selected' : '' %>>Professional</option>
+          <option value="Team" <%= category === 'Team' ? 'selected' : '' %>>Team</option>
+          <option value="College/Post-Graduate/Industry" <%= category === 'College/Post-Graduate/Industry' ? 'selected' : '' %>>College/Post-Graduate/Industry</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label for="workshop">Filter by Workshop:</label>
+        <select name="workshop" id="workshop" onchange="applyFilters()">
+          <option value="all" <%= workshop === 'all' ? 'selected' : '' %>>All Workshops</option>
+          <option value="SEMINAR-ROBOTICS" <%= workshop === 'SEMINAR-ROBOTICS' ? 'selected' : '' %>>Robotics</option>
+          <option value="SEMINAR-AI" <%= workshop === 'SEMINAR-AI' ? 'selected' : '' %>>AI</option>
+          <option value="SEMINAR-IoT" <%= workshop === 'SEMINAR-IoT' ? 'selected' : '' %>>IoT</option>
+          <option value="OTHER" <%= workshop === 'OTHER' ? 'selected' : '' %>>Other</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label for="search">Search:</label>
+        <input type="text" id="search" name="search" placeholder="Search by name, email, or school" value="<%= search || '' %>">
+      </div>
+      
+      <div class="filter-group">
+        <label for="payment">Payment Status:</label>
+        <select name="payment" id="payment" onchange="applyFilters()">
+          <option value="all" <%= payment === 'all' ? 'selected' : '' %>>All</option>
+          <option value="paid" <%= payment === 'paid' ? 'selected' : '' %>>Paid</option>
+          <option value="unpaid" <%= payment === 'unpaid' ? 'selected' : '' %>>Unpaid</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label for="verified">Verification Status:</label>
+        <select name="verified" id="verified" onchange="applyFilters()">
+          <option value="all" <%= verified === 'all' ? 'selected' : '' %>>All</option>
+          <option value="verified" <%= verified === 'verified' ? 'selected' : '' %>>Verified</option>
+          <option value="unverified" <%= verified === 'unverified' ? 'selected' : '' %>>Unverified</option>
+          <option value="denied" <%= verified === 'denied' ? 'selected' : '' %>>Denied</option>
+        </select>
+      </div>
+      
+      <div class="filter-group" style="align-self: flex-end;">
+        <button onclick="applyFilters()" class="action-button">Apply Filters</button>
+        <button onclick="resetFilters()" class="action-button">Reset</button>
+      </div>
+    </div>
+
+    <% if (registrations && registrations.length > 0) { %>
+      <div class="registration-count">
+        <p>Total registrations: <strong><%= registrations.length %></strong></p>
+      </div>
+      
+      <div class="registration-table-container">
+        <table class="registration-table">
+          <thead>
+            <tr>
+              <th>Full Name</th>
+              <th>Category</th>
+              <th>School/Organization</th>
+              <th>Email</th>
+              <th>Workshop</th>
+              <th>Competitions</th>
+              <th>Payment Status</th>
+              <th>Verified</th>
+              <th>Registration Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% registrations.forEach(registration => { %>
+              <tr>
+                <td>
+                  <%= registration.fullname %><br>
+                  <% if (registration.teamMembers) { %>
+                    <small><strong>Team Members:</strong><br><%= registration.teamMembers %></small>
+                  <% } %>
+                </td>
+                <td><%= registration.category %></td>
+                <td><%= registration.school || 'N/A' %></td>
+                <td><%= registration.email %></td>
+                <td>
+                  <%= registration.workshop %>
+                  <% if (registration.other_workshop) { %>
+                    <br><small>(Custom: <%= registration.other_workshop %>)</small>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (registration.competition && registration.competition.length > 0) { %>
+                    <ul class="detail-list">
+                      <% registration.competition.forEach(comp => { %>
+                        <li><%= comp %></li>
+                      <% }); %>
+                    </ul>
+                    <% if (registration.other_competition) { %>
+                      <small>(Custom: <%= registration.other_competition %>)</small>
+                    <% } %>
+                  <% } else { %>
+                    None
+                  <% } %>
+                </td>
+                <td>
+                  <span class="payment-badge <%= registration.paymentProofUrl ? 'paid' : 'unpaid' %>">
+                    <%= registration.paymentProofUrl ? 'PAID' : 'UNPAID' %>
+                  </span>
+                  <% if (registration.paymentProofUrl) { %>
+                    <div class="payment-proof">
+                      <a href="<%= registration.paymentProofUrl %>" target="_blank">View Receipt</a>
+                    </div>
+                  <% } %>
+                  <% if (registration.payment_details) { %>
+                    <div class="payment-details">
+                      <small><%= registration.payment_details %></small>
+                    </div>
+                  <% } %>
+                  <% if (registration.code) { %>
+                    <div class="payment-code">
+                      <small>Code: <%= registration.code %></small>
+                    </div>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (registration.denied) { %>
+                    <span class="verification-badge denied">Denied</span>
+                    <small class="verification-info denial-info">
+                      Reason: <%= registration.deniedReason %><br>
+                      <% if (registration.deniedMessage) { %>
+                        "<%= registration.deniedMessage %>"<br>
+                      <% } %>
+                      <% if (registration.deniedBy) { %>
+                        By: <%= registration.deniedBy %><br>
+                      <% } %>
+                      <% if (registration.deniedAt) { %>
+                        At: <%= new Date(registration.deniedAt).toLocaleString() %>
+                      <% } %>
+                    </small>
+                    <button onclick="changeDenialStatus('<%= registration._id %>', false)" class="action-button approve">Approve</button>
+                  <% } else if (registration.verified) { %>
+                    <span class="verification-badge verified">Verified</span>
+                    <small class="verification-info">
+                      <% if (registration.verifiedBy) { %>
+                        By: <%= registration.verifiedBy %><br>
+                      <% } %>
+                      <% if (registration.verifiedAt) { %>
+                        At: <%= new Date(registration.verifiedAt).toLocaleString() %>
+                      <% } %>
+                    </small>
+                  <% } else { %>
+                    <span class="verification-badge unverified">Unverified</span>
+                    <a href="/registration/verify/<%= registration._id %>" class="verify-link">Verify Now</a>
+                  <% } %>
+                </td>
+                <td><%= new Date(registration.registeredAt).toLocaleDateString() %></td>
+                <td>
+                  <div class="action-buttons-container">
+                    <a href="/registration/<%= registration._id %>" class="action-button view">View</a>
+                    <a href="/registration/edit/<%= registration._id %>" class="action-button edit">Edit</a>
+                    <% if (!registration.denied) { %>
+                      <button onclick="showDenyModal('<%= registration._id %>')" class="action-button deny">Deny</button>
+                    <% } %>
+                    <button onclick="confirmDelete('<%= registration._id %>')" class="action-button delete">Delete</button>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="export-section" style="margin-top: 20px; text-align: right;">
+        <button onclick="exportToCSV()" class="action-button">Export to CSV</button>
+      </div>
+    <% } else { %>
+      <div class="no-results">
+        <p>No registrations found<%= search ? ' matching "' + search + '"' : '' %>.</p>
+      </div>
+    <% } %>
+  </div>
+  
+  <script>
+    // Function to apply filters
+    function applyFilters() {
+      const category = document.getElementById('category').value;
+      const workshop = document.getElementById('workshop').value;
+      const search = document.getElementById('search').value;
+      const payment = document.getElementById('payment').value;
+      const verified = document.getElementById('verified').value;
+      
+      let url = '/manage-registrations?';
+      if (category !== 'all') url += `category=${encodeURIComponent(category)}&`;
+      if (workshop !== 'all') url += `workshop=${encodeURIComponent(workshop)}&`;
+      if (search) url += `search=${encodeURIComponent(search)}&`;
+      if (payment !== 'all') url += `payment=${encodeURIComponent(payment)}&`;
+      if (verified !== 'all') url += `verified=${encodeURIComponent(verified)}&`;
+      
+      window.location.href = url.slice(0, -1); // Remove trailing '&' or '?'
+    }
+    
+    // Function to reset all filters
+    function resetFilters() {
+      window.location.href = '/manage-registrations';
+    }
+    
+    // Function to confirm deletion
+    function confirmDelete(id) {
+      if (confirm('Are you sure you want to delete this registration? This action cannot be undone.')) {
+        window.location.href = `/registration/delete/${id}`;
+      }
+    }
+    
+    // Show deny modal
+    function showDenyModal(id) {
+      document.getElementById('registrationId').value = id;
+      const modal = document.getElementById('denyModal');
+      modal.style.display = 'block';
+    }
+    
+    // Function to change denial status back to unverified
+    function changeDenialStatus(id, isDenied) {
+      if (confirm('Are you sure you want to change the status of this registration?')) {
+        fetch(`/registration/update-status/${id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ denied: isDenied })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            window.location.reload();
+          } else {
+            alert('Error updating status: ' + data.error);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('An error occurred while updating the status.');
+        });
+      }
+    }
+    
+    // Close modal function
+    function closeModal() {
+      document.getElementById('denyModal').style.display = 'none';
+    }
+
+    // Add event listeners when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Close modal when clicking on X
+      const closeBtn = document.querySelector('.modal-close');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', closeModal);
+      }
+      
+      // Close modal when clicking on Cancel button
+      const cancelBtn = document.getElementById('cancelDeny');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeModal);
+      }
+      
+      // Close modal when clicking outside of it
+      window.addEventListener('click', function(event) {
+        const modal = document.getElementById('denyModal');
+        if (event.target === modal) {
+          modal.style.display = 'none';
+        }
+      });
+
+      // Collapsible advanced data view
+      const coll = document.querySelector('.collapsible');
+      if (coll) {
+        coll.addEventListener('click', function() {
+          this.classList.toggle('active');
+          const content = this.nextElementSibling;
+          if (content.style.display === 'block') {
+            content.style.display = 'none';
+          } else {
+            content.style.display = 'block';
+          }
+        });
+      }
+    });
+    
+    // Function to export table data to CSV
+    function exportToCSV() {
+      const table = document.querySelector('.registration-table');
+      let csv = [];
+      let rows = table.querySelectorAll('tr');
+      
+      for (let i = 0; i < rows.length; i++) {
+        let row = [], cols = rows[i].querySelectorAll('td, th');
+        
+        for (let j = 0; j < cols.length; j++) {
+          // Replace HTML elements and get text content only
+          let cellText = cols[j].innerText.replace(/"/g, '""');
+          row.push('"' + cellText + '"');
+        }
+        
+        csv.push(row.join(','));
+      }
+      
+      // Download CSV file
+      const csvFile = new Blob([csv.join('\n')], {type: 'text/csv'});
+      const downloadLink = document.createElement('a');
+      downloadLink.download = `robolution_registrations_${new Date().toISOString().slice(0,10)}.csv`;
+      downloadLink.href = window.URL.createObjectURL(csvFile);
+      downloadLink.style.display = 'none';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+  </script>
+</main>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+
+      <footer class="fixed-footer">
+        <div class="footer-content">
+          <div class="footer-left">
+            <p>Powered by Erovoutika</p>
+          </div>
+
+          <div class="footer-right">
+            <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+            <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+            <div class="social-icons">
+              <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+              <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+              <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </footer>
+</div>
+
+<a href="#" class="back-to-top" id="backToTop">↑</a>
+
+<!-- Denial Modal -->
+<div id="denyModal" class="modal">
+  <div class="modal-content">
+    <span class="modal-close">&times;</span>
+    <h2 class="modal-title">Deny Registration</h2>
+    <form id="denyForm" action="/registration/deny" method="POST">
+      <input type="hidden" id="registrationId" name="registrationId">
+      
+      <div class="form-group">
+        <label for="deniedReason">Reason for Denial:</label>
+        <select id="deniedReason" name="deniedReason" required>
+          <option value="">Select a reason</option>
+          <option value="Invalid payment receipt">Invalid payment receipt</option>
+          <option value="Amount on receipt does not match amount received">Amount on receipt does not match amount received</option>
+          <option value="Amount on payment details does not match amount on receipt">Amount on payment details does not match amount on receipt</option>
+          <option value="Other">Other (please specify below)</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="deniedMessage">Additional Details:</label>
+        <textarea id="deniedMessage" name="deniedMessage" placeholder="Please provide more details about the reason for denial..."></textarea>
+      </div>
+      
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="cancelDeny">Cancel</button>
+        <button type="submit" class="btn-deny">Deny Registration</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+</body>
+
+</html>

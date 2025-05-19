@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Accounts | Robolution Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+  <script src="/js/script.js" defer></script>
+  <script src="/js/mobile.js" defer></script>
+  <style>
+    /* Set background to white */
+    body, main {
+      background-color: #ffffff;
+      background-image: none;
+    }
+    
+    .accounts-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 120px 20px 40px;
+    }
+    
+    .accounts-card {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      margin-bottom: 30px;
+    }
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #00008b;
+      padding-bottom: 15px;
+    }
+    
+    .section-title {
+      font-size: 1.8rem;
+      color: #00008b;
+      margin: 0;
+    }
+    
+    .create-button {
+      padding: 10px 15px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 0.9rem;
+      transition: background-color 0.2s;
+    }
+    
+    .create-button:hover {
+      background-color: #218838;
+    }
+    
+    .accounts-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    .accounts-table th {
+      background-color: #00008b;
+      color: white;
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: bold;
+    }
+    
+    .accounts-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle;
+    }
+    
+    .accounts-table tr:last-child td {
+      border-bottom: none;
+    }
+    
+    .accounts-table tr:hover {
+      background-color: #f5f9ff;
+    }
+    
+    .role-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    
+    .role-badge.admin {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .role-badge.superadmin {
+      background-color: #cce5ff;
+      color: #004085;
+    }
+    
+    .role-badge.user {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    
+    .status-badge.enabled {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .status-badge.disabled {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    .action-button {
+      padding: 6px 12px;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      margin-right: 5px;
+      font-size: 0.9rem;
+      background-color: #00008b; /* Default color for all action buttons */
+    }
+    
+    .action-button:hover {
+      opacity: 0.9;
+    }
+    
+    .action-button.edit {
+      background-color: #f39c12;
+    }
+    
+    .action-button.delete {
+      background-color: #e74c3c;
+    }
+    
+    .action-button.delete:hover {
+      background-color: #c0392b;
+    }
+    
+    .no-accounts {
+      text-align: center;
+      padding: 20px;
+      font-style: italic;
+      color: #666;
+    }
+    
+    .section-divider {
+      margin: 40px 0;
+      border-top: 1px solid #eee;
+    }
+    
+    .actions-cell {
+      white-space: nowrap;
+    }
+    
+    /* Filter section styling to match manage-registrations */
+    .filter-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 20px;
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    .filter-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .filter-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .accounts-table {
+        display: block;
+        overflow-x: auto;
+      }
+      
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .section-title {
+        margin-bottom: 15px;
+      }
+      
+      .filter-section {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="content-wrapper">
+
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/create-post" class="nav-button">Create Post</a>
+        <a href="/index" class="nav-button">News</a>
+        <a href="/categories" class="nav-button">Categories</a>
+        <a href="/manage-categories" class="nav-button">Manage Categories</a>
+        <a href="/manage-registrations" class="nav-button">Registrations</a>
+        <a href="/manage-accounts" class="nav-button">Accounts</a>
+        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
+        <% if (user && user.role === 'superadmin') { %>
+        <a href="/manage-backups" class="nav-button">Backups</a>
+        <% } %>
+        <a href="/logout" class="nav-button">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="accounts-container">
+      <div class="accounts-card">
+        <!-- Search and Filters Section -->
+        <div class="filter-section">
+          <div class="filter-group">
+            <label for="search">Search:</label>
+            <input type="text" id="search" name="search" placeholder="Search by username, email or name" value="<%= locals.search || '' %>">
+          </div>
+          
+          <div class="filter-group">
+            <label for="filter2FA">2FA Status:</label>
+            <select name="filter2FA" id="filter2FA">
+              <option value="">All</option>
+              <option value="enabled" <%= locals.filter2FA === 'enabled' ? 'selected' : '' %>>Enabled</option>
+              <option value="disabled" <%= locals.filter2FA === 'disabled' ? 'selected' : '' %>>Disabled</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label for="adminRole">Account Type:</label>
+            <select name="adminRole" id="adminRole">
+              <option value="">All Accounts</option>
+              <option value="admin" <%= locals.adminRole === 'admin' ? 'selected' : '' %>>Admin</option>
+              <option value="superadmin" <%= locals.adminRole === 'superadmin' ? 'selected' : '' %>>Superadmin</option>
+              <option value="user" <%= locals.adminRole === 'user' ? 'selected' : '' %>>User</option>
+            </select>
+          </div>
+          
+          <div class="filter-group" style="align-self: flex-end;">
+            <button onclick="applyFilters()" class="action-button" style="background-color: #00008b;">Apply Filters</button>
+            <button onclick="resetFilters()" class="action-button" style="background-color: #6c757d;">Reset</button>
+          </div>
+        </div>
+
+        <div class="section-header">
+          <h1 class="section-title">Admin Accounts</h1>
+          <a href="/create-admin" class="create-button">Create Admin</a>
+        </div>
+        
+        <% if (admins && admins.length > 0) { %>
+          <div class="accounts-table-container">
+            <table class="accounts-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Created At</th>
+                  <th>2FA Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% admins.forEach(admin => { %>
+                <tr>
+                  <td><%= admin.username %></td>
+                  <td>
+                    <span class="role-badge <%= admin.role || 'admin' %>">
+                      <%= admin.role ? admin.role.toUpperCase() : 'ADMIN' %>
+                    </span>
+                  </td>
+                  <td><%= admin.createdAt ? new Date(admin.createdAt).toLocaleDateString() : 'Unknown' %></td>
+                  <td>
+                    <span class="status-badge <%= admin.twoFactorEnabled ? 'enabled' : 'disabled' %>">
+                      <%= admin.twoFactorEnabled ? 'Enabled' : 'Disabled' %>
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <a href="/account/admin/edit/<%= admin._id %>" class="action-button edit">Edit</a>
+                    <% if (user.id !== admin._id.toString()) { %>
+                      <button onclick="confirmResetAdminPassword('<%= admin._id %>', '<%= admin.username %>')" class="action-button" style="background-color: #ff9800;">Reset Password</button>
+                      <button onclick="confirmDeleteAdmin('<%= admin._id %>', '<%= admin.username %>')" class="action-button delete">Delete</button>
+                    <% } else { %>
+                      <button onclick="confirmResetAdminPassword('<%= admin._id %>', '<%= admin.username %>')" class="action-button" style="background-color: #ff9800;">Reset Password</button>
+                      <span title="Cannot delete your own account">-</span>
+                    <% } %>
+                  </td>
+                </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="no-accounts">
+            <p>No admin accounts found.</p>
+          </div>
+        <% } %>
+        
+        <div class="section-divider"></div>
+        
+        <div class="section-header">
+          <h1 class="section-title">User Accounts</h1>
+        </div>
+        
+        <% if (users && users.length > 0) { %>
+          <div class="accounts-table-container">
+            <table class="accounts-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>2FA Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% users.forEach(userAccount => { %>
+                <tr>
+                  <td><%= userAccount.username %></td>
+                  <td><%= userAccount.fullName %></td>
+                  <td><%= userAccount.email %></td>
+                  <td>
+                    <span class="status-badge <%= userAccount.twoFactorEnabled ? 'enabled' : 'disabled' %>">
+                      <%= userAccount.twoFactorEnabled ? 'Enabled' : 'Disabled' %>
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <a href="/account/user/edit/<%= userAccount._id %>" class="action-button edit">Edit</a>
+                    <button onclick="showChangePasswordModal('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button change-pwd">Change Password</button>
+                    <button onclick="confirmResetPassword('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #ff9800;">Reset Password</button>
+                    <button onclick="confirmDeleteUser('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button delete">Delete</button>
+                  </td>
+                </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="no-accounts">
+            <p>No user accounts found.</p>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </main>
+
+  <footer class="fixed-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+      <div class="footer-right">
+        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+        <div class="social-icons">
+          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+    // Function to confirm admin deletion  function confirmDeleteAdmin(id, username) {    if (confirm(`Are you sure you want to delete the admin account "${username}"? This action cannot be undone.`)) {      window.location.href = `/account/admin/delete/${id}`;    }  }    // Function to confirm admin password reset  function confirmResetAdminPassword(id, username) {    if (confirm(`Are you sure you want to reset the password for admin "${username}"? They will be required to set up 2FA after login.`)) {      window.location.href = `/account/admin/reset-password/${id}`;    }  }    
+  // Function to confirm user deletion
+  function confirmDeleteUser(id, username) {
+    if (confirm(`Are you sure you want to delete the user account "${username}"? This action cannot be undone.`)) {
+      window.location.href = `/account/user/delete/${id}`;
+    }
+  }
+  
+  // Function to confirm password reset
+  function confirmResetPassword(id, username) {
+    if (confirm(`Are you sure you want to reset the password for "${username}"? The user will be required to set up 2FA after login.`)) {
+      window.location.href = `/account/user/reset-password/${id}`;
+    }
+  }
+  
+  // Function to apply filters
+  function applyFilters() {
+    const search = document.getElementById('search').value;
+    const filter2FA = document.getElementById('filter2FA').value;
+    const adminRole = document.getElementById('adminRole').value;
+    
+    let url = '/manage-accounts?';
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+    if (filter2FA) url += `filter2FA=${encodeURIComponent(filter2FA)}&`;
+    if (adminRole) url += `adminRole=${encodeURIComponent(adminRole)}&`;
+    
+    // Remove trailing '&' or '?'
+    window.location.href = url.slice(0, -1);
+  }
+  
+  // Function to reset all filters
+  function resetFilters() {
+    window.location.href = '/manage-accounts';
+  }
+  
+  // Add event listener for Enter key in search input
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+      searchInput.addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') {
+          applyFilters();
+        }
+      });
+    }
+  });
+</script>
+
+<!-- Change Password Modal -->
+<div id="changePasswordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 30px; border-radius: 8px; width: 400px; max-width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #00008b; padding-bottom: 15px;">
+      <h2 style="margin: 0; color: #00008b;">Change Password</h2>
+      <button onclick="closeChangePasswordModal()" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+    </div>
+    
+    <div id="passwordChangeError" style="color: #e74c3c; background: #f8d7da; border-radius: 4px; padding: 10px; display: none; margin-bottom: 15px;"></div>
+    <div id="passwordChangeSuccess" style="color: #155724; background: #d4edda; border-radius: 4px; padding: 10px; display: none; margin-bottom: 15px;"></div>
+    
+    <form id="changePasswordForm">
+      <input type="hidden" id="userId" name="userId" value="">
+      <input type="hidden" id="username" name="username" value="">
+      
+      <div style="margin-bottom: 15px;">
+        <label for="password" style="display: block; margin-bottom: 5px; font-weight: bold;">New Password</label>
+        <input type="password" id="password" name="password" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <label for="confirmPassword" style="display: block; margin-bottom: 5px; font-weight: bold;">Confirm Password</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button type="submit" style="padding: 10px; background-color: #00008b; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Change Password</button>
+        <button type="button" onclick="closeChangePasswordModal()" style="padding: 10px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Functions for change password modal
+  function showChangePasswordModal(userId, username) {
+    document.getElementById('userId').value = userId;
+    document.getElementById('username').value = username;
+    document.getElementById('changePasswordForm').reset();
+    document.getElementById('passwordChangeError').style.display = 'none';
+    document.getElementById('passwordChangeSuccess').style.display = 'none';
+    document.getElementById('changePasswordModal').style.display = 'block';
+  }
+  
+  function closeChangePasswordModal() {
+    document.getElementById('changePasswordModal').style.display = 'none';
+  }
+  
+  // Close modal when clicking outside of it
+  document.addEventListener('click', function(event) {
+    const modal = document.getElementById('changePasswordModal');
+    const modalContent = modal.querySelector('div');
+    
+    if (event.target === modal) {
+      closeChangePasswordModal();
+    }
+  });
+  
+  // Handle escape key to close modal
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape' && document.getElementById('changePasswordModal').style.display === 'block') {
+      closeChangePasswordModal();
+    }
+  });
+  
+  // Handle password change form submission
+  document.getElementById('changePasswordForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    
+    const userId = document.getElementById('userId').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const errorElement = document.getElementById('passwordChangeError');
+    const successElement = document.getElementById('passwordChangeSuccess');
+    
+    // Clear previous messages
+    errorElement.style.display = 'none';
+    successElement.style.display = 'none';
+    
+    // Validate passwords
+    if (password.length < 8) {
+      errorElement.textContent = 'Password must be at least 8 characters long.';
+      errorElement.style.display = 'block';
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      errorElement.textContent = 'Passwords do not match.';
+      errorElement.style.display = 'block';
+      return;
+    }
+    
+    // Submit the form via fetch API
+    fetch(`/account/user/change-password/${userId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ password, confirmPassword }),
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        successElement.textContent = data.message;
+        successElement.style.display = 'block';
+        document.getElementById('changePasswordForm').reset();
+        
+        // Automatically close the modal after 3 seconds
+        setTimeout(() => {
+          closeChangePasswordModal();
+        }, 3000);
+      } else {
+        errorElement.textContent = data.message;
+        errorElement.style.display = 'block';
+      }
+    })
+    .catch(error => {
+      errorElement.textContent = 'An error occurred while changing the password.';
+      errorElement.style.display = 'block';
+      console.error('Error:', error);
+    });
+  });
+</script>
+</body>
+</html> 

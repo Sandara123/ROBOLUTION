@@ -1,0 +1,48 @@
+{
+  "name": "robolution",
+  "version": "1.0.0",
+  "description": "Robolution Web Application",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "deploy": "firebase deploy",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "build": "echo 'Preparing for deployment...' && node scripts/copy-assets.js && node setup.js",
+    "setup": "node setup.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test-prod": "cross-env NODE_ENV=production node prod-test.js"
+  },
+  "keywords": [
+    "robolution",
+    "firebase",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "body-parser": "^1.20.2",
+    "cloudinary": "^2.6.1",
+    "connect-flash": "^0.1.1",
+    "connect-mongo": "^5.1.0",
+    "cookie-parser": "^1.4.6",
+    "cross-env": "^7.0.3",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "mongodb": "^6.16.0",
+    "mongoose": "^7.3.4",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^3.3.2",
+    "qrcode": "^1.5.4",
+    "speakeasy": "^2.0.0"
+  },
+  "devDependencies": {
+    "fs-extra": "^11.3.0",
+    "nodemon": "^3.1.10"
+  }
+}

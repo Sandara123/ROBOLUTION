@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Post | Robolution</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Add dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .dropdown-btn {
+      cursor: pointer;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 220px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 4px;
+      padding: 8px 0;
+    }
+    
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+      transition: background-color 0.2s ease;
+    }
+    
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+    
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+
+    /* Existing form styles */
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #001f5c;
+    }
+    
+    .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccd7ea;
+      border-radius: 4px;
+      background-color: #fff;
+    }
+    
+    .form-group select:focus {
+      border-color: #003399;
+      outline: none;
+      box-shadow: 0 0 3px rgba(0, 51, 153, 0.3);
+    }
+    
+    .region-section {
+      background-color: #f5f9ff;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 15px;
+      border-left: 3px solid #003399;
+    }
+    
+    .region-section h3 {
+      margin-top: 0;
+      color: #001f5c;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-content">
+        <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+        <nav class="header-nav">
+          <a href="/create-post" class="nav-button create-post-button">Create Post</a>
+          <a href="/index" class="nav-button">News</a>
+          <a href="/categories" class="nav-button">Categories</a>
+          <a href="/manage-categories" class="nav-button">Manage Categories</a>
+          <a href="/manage-registrations" class="nav-button">Manage Registration</a>
+          <a href="/manage-accounts" class="nav-button">Accounts</a>
+          <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
+          <% if (user && user.role === 'superadmin') { %>
+          <a href="/manage-backups" class="nav-button">Backups</a>
+          <% } %>
+          <div class="dropdown">
+            <button class="nav-button dropdown-btn">Regional</button>
+            <div class="dropdown-content">
+              <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
+                <a href="/admin-regional?region=All">All Regions</a>
+                <% uniqueRegions.forEach(function(region) { %>
+                  <a href="/admin-regional?region=<%= region %>"><%= region %></a>
+                <% }); %>
+              <% } else { %>
+                <div class="dropdown-empty">No regional posts available</div>
+              <% } %>
+            </div>
+          </div>
+          <a href="/logout" class="nav-button logout-button">Logout</a>
+        </nav>
+    </div>
+  </header>
+
+  <main class="main-create">
+    <section>
+      <h2>Create a New Post</h2>
+
+      <form action="/posts" method="POST" enctype="multipart/form-data" class="post-form">
+        <input type="text" name="title" placeholder="Post Title" required><br>
+        <textarea name="content" placeholder="Write your content here..." required></textarea><br>
+        <input type="text" name="author" placeholder="Author Name" required><br>
+        <input type="file" name="image" accept="image/*"><br>
+        
+        <div class="region-section">
+          <h3>Post Region</h3>
+          <div class="form-group">
+            <label for="region">Select the region this post applies to:</label>
+            <select name="region" id="region">
+              <option value="All">All Regions</option>
+              <option value="Region I">Region I (Ilocos Region)</option>
+              <option value="Region II">Region II (Cagayan Valley)</option>
+              <option value="Region III">Region III (Central Luzon)</option>
+              <option value="Region IV-A">Region IV-A (CALABARZON)</option>
+              <option value="Region IV-B">Region IV-B (MIMAROPA)</option>
+              <option value="Region V">Region V (Bicol Region)</option>
+              <option value="Region VI">Region VI (Western Visayas)</option>
+              <option value="Region VII">Region VII (Central Visayas)</option>
+              <option value="Region VIII">Region VIII (Eastern Visayas)</option>
+              <option value="Region IX">Region IX (Zamboanga Peninsula)</option>
+              <option value="Region X">Region X (Northern Mindanao)</option>
+              <option value="Region XI">Region XI (Davao Region)</option>
+              <option value="Region XII">Region XII (SOCCSKSARGEN)</option>
+              <option value="Region XIII">Region XIII (Caraga)</option>
+              <option value="NCR">National Capital Region (NCR)</option>
+              <option value="CAR">Cordillera Administrative Region (CAR)</option>
+              <option value="BARMM">Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)</option>
+            </select>
+            <p class="note" style="font-size: 0.8rem; color: #666; margin-top: 5px;">
+              Select "All Regions" if the post is relevant to all regions, or choose a specific region.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label for="useCurrentDate">Use Current Date:</label>
+          <input type="checkbox" id="useCurrentDate" name="useCurrentDate">
+        </div><br>
+
+        <div id="customDateInput" style="display: block;">
+          <label for="date">Custom Date:</label>
+          <input type="date" id="date" name="date" >
+        </div><br>
+
+        <input type="submit" value="Submit" class="submit-btn">
+      </form>
+
+      <br>
+      <a href="/index"><button class="back-btn">← Go Back</button></a>
+    </section>
+  </main>
+
+  <footer>
+      <p>Powered by Erovoutika</p>
+  </footer>
+
+  <script src="/js/script.js"></script>
+  <script>
+    // Add dropdown functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const dropdowns = document.querySelectorAll('.dropdown');
+      
+      dropdowns.forEach(dropdown => {
+        const btn = dropdown.querySelector('.dropdown-btn');
+        const content = dropdown.querySelector('.dropdown-content');
+        
+        // Show dropdown on hover
+        dropdown.addEventListener('mouseenter', () => {
+          content.style.display = 'block';
+        });
+        
+        // Hide dropdown when mouse leaves
+        dropdown.addEventListener('mouseleave', () => {
+          content.style.display = 'none';
+        });
+      });
+
+      // Your existing date input JavaScript
+      const useCurrentDateCheckbox = document.getElementById('useCurrentDate');
+      const customDateInput = document.getElementById('customDateInput');
+      const dateInput = document.getElementById('date');
+
+      useCurrentDateCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+          customDateInput.style.display = 'none';
+          dateInput.disabled = true;
+        } else {
+          customDateInput.style.display = 'block';
+          dateInput.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

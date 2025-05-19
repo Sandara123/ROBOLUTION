@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit User Profile | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+  <script src="/js/script.js" defer></script>
+  <script src="/js/mobile.js" defer></script>
+  <!-- Add Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    body, main {
+      background-color: #ffffff;
+      background-image: none;
+      min-height: 100vh;
+    }
+    
+    .content-wrapper {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    
+    main {
+      flex: 1;
+    }
+    
+    .profile-container {
+      max-width: 900px;
+      margin: 120px auto 40px;
+      padding: 0 20px;
+    }
+    
+    .profile-card {
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      margin-bottom: 30px;
+    }
+    
+    .section-title {
+      font-size: 1.4rem;
+      color: #00008b;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #eee;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #444;
+    }
+    
+    .form-group input, 
+    .form-group select, 
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .form-col {
+      flex: 1;
+    }
+    
+    .action-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    
+    .save-btn {
+      padding: 10px 25px;
+      background-color: #00008b;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    .cancel-btn {
+      padding: 10px 25px;
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    
+    #profilePictureInput {
+      display: none;
+    }
+    
+    /* Profile picture preview */
+    .profile-picture-container {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      margin: 0 auto 20px;
+      overflow: hidden;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .profile-picture {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .change-picture {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      text-align: center;
+      padding: 8px 0;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: opacity 0.3s;
+      opacity: 0;
+    }
+    
+    .profile-picture-container:hover .change-picture {
+      opacity: 1;
+    }
+    
+    .user-details {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .username {
+      font-size: 1.8rem;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #00008b;
+    }
+    
+    .email {
+      font-size: 1rem;
+      color: #777;
+    }
+    
+    /* Dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .dropdown-btn {
+      cursor: pointer;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 220px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 4px;
+      padding: 8px 0;
+    }
+    
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+      transition: background-color 0.2s ease;
+    }
+    
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+    
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+    
+    /* Message styling */
+    .message {
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 5px;
+      display: none;
+    }
+    
+    .success {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+    
+    .error {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
+    
+    @media (max-width: 768px) {
+      .form-row {
+        flex-direction: column;
+        gap: 0;
+      }
+      
+      .action-buttons {
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .save-btn, .cancel-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div class="content-wrapper">
+
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
+        <a href="/index" class="nav-button">News</a>
+        <a href="/categories" class="nav-button">Categories</a>
+        <a href="/manage-categories" class="nav-button">Manage Categories</a>
+        <a href="/manage-registrations" class="nav-button">Manage Registration</a>
+        <a href="/manage-accounts" class="nav-button">Accounts</a>
+        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
+        <% if (user && user.role === 'superadmin') { %>
+        <a href="/manage-backups" class="nav-button">Backups</a>
+        <% } %>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <a href="/admin-regional?region=All">All Regions</a>
+            <% 
+            // Try to get regions from uniqueRegions
+            if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) {
+              uniqueRegions.forEach(function(region) { %>
+                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
+              <% });
+            } else { %>
+              <div class="dropdown-empty">No regional posts available</div>
+            <% } %>
+          </div>
+        </div>
+        <a href="/logout" class="nav-button logout-button">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="profile-container">
+      <div class="profile-card">
+        <div id="messageContainer" class="message"></div>
+        
+        <h2 class="section-title">Edit User Profile</h2>
+        
+        <div class="user-details">
+          <% if (userProfile.profilePicture) { %>
+            <div class="profile-picture-container">
+              <img src="<%= userProfile.profilePicture %>" alt="Profile Picture" class="profile-picture" id="profileImage">
+              <div class="change-picture" id="changePictureBtn">Change Picture</div>
+            </div>
+          <% } else { %>
+            <div class="profile-picture-container">
+              <img src="/images/default-profile.jpg" alt="Default Profile Picture" class="profile-picture" id="profileImage">
+              <div class="change-picture" id="changePictureBtn">Add Picture</div>
+            </div>
+          <% } %>
+          <h1 class="username">@<%= userProfile.username %></h1>
+          <div class="email"><%= userProfile.email %></div>
+        </div>
+        
+        <form id="profileUpdateForm" action="/admin/user-profiles/<%= userProfile._id %>/update" method="POST" enctype="multipart/form-data">
+          <input type="file" id="profilePictureInput" name="profilePicture" accept="image/*">
+          
+          <div class="form-group">
+            <label for="fullName">Full Name</label>
+            <input type="text" id="fullName" name="fullName" value="<%= userProfile.fullName || '' %>">
+          </div>
+          
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" value="<%= userProfile.email || '' %>">
+          </div>
+          
+          <div class="form-group">
+            <label>Birth Date</label>
+            <div class="form-row">
+              <div class="form-col">
+                <select name="birthMonth" id="birthMonth">
+                  <option value="">Select Month</option>
+                  <option value="1" <%= userProfile.birthDate && userProfile.birthDate.month === 1 ? 'selected' : '' %>>January</option>
+                  <option value="2" <%= userProfile.birthDate && userProfile.birthDate.month === 2 ? 'selected' : '' %>>February</option>
+                  <option value="3" <%= userProfile.birthDate && userProfile.birthDate.month === 3 ? 'selected' : '' %>>March</option>
+                  <option value="4" <%= userProfile.birthDate && userProfile.birthDate.month === 4 ? 'selected' : '' %>>April</option>
+                  <option value="5" <%= userProfile.birthDate && userProfile.birthDate.month === 5 ? 'selected' : '' %>>May</option>
+                  <option value="6" <%= userProfile.birthDate && userProfile.birthDate.month === 6 ? 'selected' : '' %>>June</option>
+                  <option value="7" <%= userProfile.birthDate && userProfile.birthDate.month === 7 ? 'selected' : '' %>>July</option>
+                  <option value="8" <%= userProfile.birthDate && userProfile.birthDate.month === 8 ? 'selected' : '' %>>August</option>
+                  <option value="9" <%= userProfile.birthDate && userProfile.birthDate.month === 9 ? 'selected' : '' %>>September</option>
+                  <option value="10" <%= userProfile.birthDate && userProfile.birthDate.month === 10 ? 'selected' : '' %>>October</option>
+                  <option value="11" <%= userProfile.birthDate && userProfile.birthDate.month === 11 ? 'selected' : '' %>>November</option>
+                  <option value="12" <%= userProfile.birthDate && userProfile.birthDate.month === 12 ? 'selected' : '' %>>December</option>
+                </select>
+              </div>
+              
+              <div class="form-col">
+                <select name="birthYear" id="birthYear">
+                  <option value="">Select Year</option>
+                  <% 
+                    const currentYear = new Date().getFullYear();
+                    for (let year = currentYear - 80; year <= currentYear - 5; year++) { 
+                  %>
+                    <option value="<%= year %>" <%= userProfile.birthDate && userProfile.birthDate.year === year ? 'selected' : '' %>><%= year %></option>
+                  <% } %>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="school">School</label>
+            <input type="text" id="school" name="school" value="<%= userProfile.school || '' %>">
+          </div>
+          
+          <div class="form-group">
+            <label for="address">Address</label>
+            <textarea id="address" name="address"><%= userProfile.address || '' %></textarea>
+          </div>
+          
+          <div class="action-buttons">
+            <a href="/admin/user-profiles/<%= userProfile._id %>" class="cancel-btn">Cancel</a>
+            <button type="submit" class="save-btn">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer class="fixed-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+      <div class="footer-right">
+        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+        <div class="social-icons">
+          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const changePictureBtn = document.getElementById('changePictureBtn');
+    const profilePictureInput = document.getElementById('profilePictureInput');
+    const profileImage = document.getElementById('profileImage');
+    const messageContainer = document.getElementById('messageContainer');
+    
+    // Change picture button click
+    changePictureBtn.addEventListener('click', function() {
+      profilePictureInput.click();
+    });
+    
+    // Profile picture input change
+    profilePictureInput.addEventListener('change', function() {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          profileImage.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    // Helper function to show messages
+    function showMessage(message, type) {
+      messageContainer.textContent = message;
+      messageContainer.className = 'message ' + type;
+      messageContainer.style.display = 'block';
+      
+      // Hide message after 5 seconds
+      setTimeout(() => {
+        messageContainer.style.display = 'none';
+      }, 5000);
+    }
+    
+    // Check if there's a message in the URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const messageParam = urlParams.get('message');
+    const messageType = urlParams.get('type') || 'info';
+    
+    if (messageParam) {
+      showMessage(decodeURIComponent(messageParam), messageType);
+    }
+  });
+</script>
+</body>
+</html> 

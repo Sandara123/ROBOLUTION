@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Successful</title>
+    <style>
+        :root {
+            --navy: #0a2463;
+            --navy-light: #1e3a8a;
+            --accent: #3e92cc;
+            --light-bg: #f8f9fa;
+            --white: #ffffff;
+            --success: #28a745;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-bg);
+            margin: 0;
+            padding: 20px;
+            color: #212529;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: var(--white);
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background-color: var(--success);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin: 0 auto 20px;
+        }
+        
+        h1 {
+            color: var(--navy);
+            margin-bottom: 20px;
+        }
+        
+        p {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .details {
+            background-color: var(--light-bg);
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+            border-left: 4px solid var(--accent);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            margin-top: 20px;
+            background-color: var(--navy);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            background-color: var(--navy-light);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✓</div>
+        <h1>Registration Successful!</h1>
+        <p>Thank you, <%= name %>, for registering for ROBOLUTION 2023.</p>
+        <p>We have received your registration details and payment information.</p>
+        
+        <div class="details">
+            <h3>What's Next?</h3>
+            <p>You will receive a confirmation email shortly with further instructions.</p>
+            <p>Please keep your registration details for future reference.</p>
+        </div>
+        
+        <p>If you have any questions, please contact us through our Facebook page.</p>
+        
+        <a href="/" class="btn">Return to Home</a>
+    </div>
+</body>
+</html> 

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= error || 'Error' %> | Robolution</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+  <script src="/js/script.js" defer></script>
+  <script src="/js/mobile.js" defer></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    /* Set background to white */
+    body, main {
+      background-color: #ffffff;
+      background-image: none;
+      min-height: 100vh;
+    }
+    
+    /* Main content wrapper to ensure footer stays at bottom */
+    .content-wrapper {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    
+    main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    /* Footer styles - fix it to the bottom */
+    .fixed-footer {
+      margin-top: auto;
+      width: 100%;
+      background-color: #00008b;
+      color: white;
+      padding: 15px 0;
+    }
+    
+    /* Error container styles */
+    .error-container {
+      max-width: 600px;
+      width: 100%;
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      text-align: center;
+      margin: 120px auto 40px;
+    }
+    
+    .error-icon {
+      font-size: 60px;
+      color: #f44336;
+      margin-bottom: 20px;
+    }
+    
+    .error-title {
+      font-size: 28px;
+      color: #00008b;
+      margin-bottom: 15px;
+    }
+    
+    .error-message {
+      font-size: 18px;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+    
+    .action-button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #00008b;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      margin: 10px;
+      transition: background-color 0.3s;
+    }
+    
+    .action-button:hover {
+      background-color: #0000cd;
+    }
+    
+    .logout-button-container {
+      margin-top: 20px;
+    }
+    
+    .logout-button-error {
+      background-color: #f44336;
+    }
+    
+    .logout-button-error:hover {
+      background-color: #d32f2f;
+    }
+    
+    /* Dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-btn {
+      cursor: pointer;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 220px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      border-radius: 4px;
+      padding: 8px 0;
+    }
+
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+      transition: background-color 0.2s ease;
+    }
+
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+    
+    @media (max-width: 768px) {
+      .error-container {
+        margin: 80px 20px 40px;
+        padding: 20px;
+      }
+      
+      .error-title {
+        font-size: 24px;
+      }
+      
+      .error-message {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="content-wrapper">
+
+  <header>
+    <div class="header-content">
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/user-landing" class="nav-button">News</a>
+        <a href="/user-categories" class="nav-button">Categories</a>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <a href="/regional?region=All">All Regions</a>
+            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
+              <% uniqueRegions.forEach(function(region) { %>
+                <a href="/regional?region=<%= region %>"><%= region %></a>
+              <% }); %>
+            <% } %>
+          </div>
+        </div>
+        <a href="/registration" class="nav-button">Registration</a>
+        <a href="/login" class="nav-button login-button">Login</a>
+        <a href="/signup" class="nav-button signup-button">Sign Up</a>
+        <a href="/logout" class="nav-button logout-button">Logout</a>
+        <a href="/profile" class="nav-button profile-button" style="display: none;">
+          <i class="fas fa-user-circle"></i> Profile
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="error-container">
+      <div class="error-icon">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <h1 class="error-title"><%= error || 'Error Occurred' %></h1>
+      <p class="error-message"><%= message || 'An unexpected error has occurred. Please try again later.' %></p>
+      
+      <div>
+        <a href="<%= actionLink || '/' %>" class="action-button"><%= actionText || 'Go Home' %></a>
+        <% if (typeof showBackButton !== 'undefined' && showBackButton) { %>
+          <a href="javascript:history.back()" class="action-button">Go Back</a>
+        <% } %>
+      </div>
+      
+      <% if (typeof showLogoutButton !== 'undefined' && showLogoutButton) { %>
+        <div class="logout-button-container">
+          <a href="/logout" class="action-button logout-button-error">Logout</a>
+        </div>
+      <% } %>
+    </div>
+  </main>
+
+  <footer class="fixed-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+      <div class="footer-right">
+        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+        <div class="social-icons">
+          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Check if user is logged in using a cookie check
+    function checkLoginStatus() {
+      const isLoggedIn = document.cookie.split(';').some(function(item) { 
+          return item.trim().startsWith('robolution_session=');
+      }) || localStorage.getItem('isLoggedIn') === 'true';
+      
+      const loginButton = document.querySelector('.login-button');
+      const signupButton = document.querySelector('.signup-button');
+      const logoutButton = document.querySelector('.logout-button');
+      const profileButton = document.querySelector('.profile-button');
+      
+      if (isLoggedIn) {
+        // User is logged in
+        if (loginButton) loginButton.style.display = 'none';
+        if (signupButton) signupButton.style.display = 'none';
+        if (logoutButton) logoutButton.style.display = 'inline-block';
+        if (profileButton) profileButton.style.display = 'inline-block';
+      } else {
+        // User is not logged in
+        if (loginButton) loginButton.style.display = 'inline-block';
+        if (signupButton) signupButton.style.display = 'inline-block';
+        if (logoutButton) logoutButton.style.display = 'none';
+        if (profileButton) profileButton.style.display = 'none';
+      }
+    }
+    
+    // Run on page load
+    checkLoginStatus();
+  });
+</script>
+</body>
+</html> 

@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Admin | Robolution</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        :root {
+            --navy: #1a3a5f;
+            --navy-light: #2c5282;
+            --white: #ffffff;
+            --light-gray: #f8f9fa;
+            --border-color: #e2e8f0;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f5ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        .admin-container {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 70, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h1 {
+            text-align: center;
+            color: #001f5c;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #001f5c;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccd7ea;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            border-color: #003399;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 51, 153, 0.3);
+        }
+        
+        .submit-button {
+            background-color: #003399;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .submit-button:hover {
+            background-color: #00286b;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .back-link a {
+            color: #003399;
+            text-decoration: none;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .success {
+            background-color: #e6ffed;
+            color: #28a745;
+            border: 1px solid #28a745;
+        }
+        
+        .error {
+            background-color: #ffeaea;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+        }
+        
+        /* Password strength meter */
+        .password-strength-meter {
+            height: 6px;
+            background-color: #eee;
+            margin-top: 10px;
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .password-strength-meter-bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+            width: 0%;
+        }
+        
+        .strength-text {
+            font-size: 12px;
+            margin-top: 5px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .password-requirements {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: var(--light-gray);
+            border-radius: 6px;
+        }
+        
+        .requirement {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .requirement i {
+            margin-right: 8px;
+            font-size: 14px;
+            width: 16px;
+            text-align: center;
+        }
+        
+        .requirement.met {
+            color: var(--success);
+        }
+        
+        .requirement.unmet {
+            color: var(--danger);
+        }
+        
+        .password-container {
+            position: relative;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+            font-size: 14px;
+            padding: 0;
+            width: auto;
+        }
+        
+        /* For the icons */
+        .requirement i.fa-check {
+            color: var(--success);
+        }
+        
+        .requirement i.fa-times {
+            color: var(--danger);
+        }
+        
+        .username-status {
+            font-size: 0.9rem;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .username-status.available {
+            color: #28a745;
+        }
+        
+        .username-status.unavailable {
+            color: #dc3545;
+        }
+        
+        .username-input {
+            position: relative;
+        }
+        
+        .username-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: translateY(-50%) rotate(0deg); }
+            100% { transform: translateY(-50%) rotate(360deg); }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <h1>Create Admin Account</h1>
+        
+        <% if (locals.message) { %>
+            <div class="message <%= locals.messageType %>">
+                <%= message %>
+            </div>
+        <% } %>
+        
+        <form id="create-admin-form" action="/create-admin" method="POST">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <div class="username-input">
+                    <input type="text" id="username" name="username" required>
+                    <div class="username-spinner"></div>
+                </div>
+                <div class="username-status"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-container">
+                    <input type="password" id="password" name="password" required>
+                    <button type="button" class="toggle-password">
+                        <i class="far fa-eye"></i>
+                    </button>
+                </div>
+                <div class="password-strength-meter">
+                    <div class="password-strength-meter-bar"></div>
+                </div>
+                <div class="strength-text">Password strength</div>
+                
+                <div class="password-requirements">
+                    <div class="requirement" id="length-req">
+                        <i class="fas fa-times"></i> At least 12 characters
+                    </div>
+                    <div class="requirement" id="uppercase-req">
+                        <i class="fas fa-times"></i> At least one uppercase letter
+                    </div>
+                    <div class="requirement" id="lowercase-req">
+                        <i class="fas fa-times"></i> At least one lowercase letter
+                    </div>
+                    <div class="requirement" id="number-req">
+                        <i class="fas fa-times"></i> At least one number
+                    </div>
+                    <div class="requirement" id="special-req">
+                        <i class="fas fa-times"></i> At least one special character
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <div class="password-container">
+                    <input type="password" id="confirmPassword" name="confirmPassword" required>
+                    <button type="button" class="toggle-password">
+                        <i class="far fa-eye"></i>
+                    </button>
+                </div>
+                <div class="requirement" id="match-req" style="margin-top: 5px;">
+                    <i class="fas fa-times"></i> Passwords match
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="adminKey">Admin Creation Key</label>
+                <input type="password" id="adminKey" name="adminKey" required>
+            </div>
+            
+            <button type="submit" class="submit-button" id="submitBtn">Create Admin</button>
+        </form>
+        
+        <div class="back-link">
+            <a href="javascript:history.back()">Back</a>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirmPassword');
+            const strengthMeter = document.querySelector('.password-strength-meter-bar');
+            const strengthText = document.querySelector('.strength-text');
+            const submitBtn = document.getElementById('submitBtn');
+            const togglePasswordButtons = document.querySelectorAll('.toggle-password');
+            
+            // Requirements
+            const lengthReq = document.getElementById('length-req');
+            const uppercaseReq = document.getElementById('uppercase-req');
+            const lowercaseReq = document.getElementById('lowercase-req');
+            const numberReq = document.getElementById('number-req');
+            const specialReq = document.getElementById('special-req');
+            const matchReq = document.getElementById('match-req');
+            
+            // Toggle password visibility
+            togglePasswordButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const input = this.previousElementSibling;
+                    const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                    input.setAttribute('type', type);
+                    this.innerHTML = type === 'password' ? '<i class="far fa-eye"></i>' : '<i class="far fa-eye-slash"></i>';
+                });
+            });
+            
+            function updatePasswordStrength(password) {
+                // Check requirements
+                const hasLength = password.length >= 12;
+                const hasUppercase = /[A-Z]/.test(password);
+                const hasLowercase = /[a-z]/.test(password);
+                const hasNumber = /[0-9]/.test(password);
+                const hasSpecial = /[^A-Za-z0-9]/.test(password);
+                
+                // Update requirement indicators
+                updateRequirement(lengthReq, hasLength);
+                updateRequirement(uppercaseReq, hasUppercase);
+                updateRequirement(lowercaseReq, hasLowercase);
+                updateRequirement(numberReq, hasNumber);
+                updateRequirement(specialReq, hasSpecial);
+                
+                // Calculate strength
+                let strength = 0;
+                if (password.length > 0) strength += 20;
+                if (hasLength) strength += 20;
+                if (hasUppercase) strength += 20;
+                if (hasLowercase) strength += 20;
+                if (hasNumber) strength += 10;
+                if (hasSpecial) strength += 10;
+                
+                // Update meter
+                strengthMeter.style.width = strength + '%';
+                
+                // Set color based on strength
+                if (strength < 40) {
+                    strengthMeter.style.backgroundColor = '#dc3545';
+                    strengthText.textContent = 'Weak';
+                    strengthText.style.color = '#dc3545';
+                } else if (strength < 70) {
+                    strengthMeter.style.backgroundColor = '#ffc107';
+                    strengthText.textContent = 'Moderate';
+                    strengthText.style.color = '#ffc107';
+                } else {
+                    strengthMeter.style.backgroundColor = '#28a745';
+                    strengthText.textContent = 'Strong';
+                    strengthText.style.color = '#28a745';
+                }
+                
+                // All requirements met?
+                return hasLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+            }
+            
+            function updateRequirement(element, isMet) {
+                if (isMet) {
+                    element.classList.add('met');
+                    element.classList.remove('unmet');
+                    element.querySelector('i').className = 'fas fa-check';
+                } else {
+                    element.classList.add('unmet');
+                    element.classList.remove('met');
+                    element.querySelector('i').className = 'fas fa-times';
+                }
+            }
+            
+            passwordInput.addEventListener('input', function() {
+                updatePasswordStrength(this.value);
+                
+                // Check if passwords match
+                if (confirmPasswordInput.value.length > 0) {
+                    const match = this.value === confirmPasswordInput.value;
+                    updateRequirement(matchReq, match);
+                }
+            });
+            
+            confirmPasswordInput.addEventListener('input', function() {
+                const match = this.value === passwordInput.value;
+                updateRequirement(matchReq, match);
+            });
+            
+            // Form submission
+            document.getElementById('create-admin-form').addEventListener('submit', function(e) {
+                const passwordStrong = updatePasswordStrength(passwordInput.value);
+                const passwordsMatch = passwordInput.value === confirmPasswordInput.value;
+                
+                if (!passwordStrong || !passwordsMatch) {
+                    e.preventDefault();
+                    alert('Please ensure your password meets all requirements and both passwords match');
+                }
+            });
+        });
+
+        let usernameTimer;
+        const usernameInput = document.getElementById('username');
+        const usernameStatus = document.querySelector('.username-status');
+        const usernameSpinner = document.querySelector('.username-spinner');
+        const form = document.getElementById('create-admin-form');
+
+        usernameInput.addEventListener('input', function() {
+            const username = this.value.trim();
+            
+            // Clear previous timer
+            clearTimeout(usernameTimer);
+            
+            // Hide previous status
+            usernameStatus.style.display = 'none';
+            
+            if (username.length < 3) {
+                return;
+            }
+
+            // Show spinner
+            usernameSpinner.style.display = 'block';
+            
+            // Set new timer for 500ms debounce
+            usernameTimer = setTimeout(async () => {
+                try {
+                    // Check admin collection
+                    const adminResponse = await fetch(`/api/check-admin-username?username=${encodeURIComponent(username)}`);
+                    const adminData = await adminResponse.json();
+                    
+                    // Check user collection
+                    const userResponse = await fetch(`/api/check-username?username=${encodeURIComponent(username)}`);
+                    const userData = await userResponse.json();
+                    
+                    // Username is available only if it doesn't exist in either collection
+                    const isAvailable = adminData.available && userData.available;
+                    
+                    // Hide spinner
+                    usernameSpinner.style.display = 'none';
+                    
+                    // Show status
+                    usernameStatus.style.display = 'block';
+                    if (isAvailable) {
+                        usernameStatus.textContent = '✓ Username is available';
+                        usernameStatus.className = 'username-status available';
+                    } else {
+                        usernameStatus.textContent = '✕ Username is already taken';
+                        usernameStatus.className = 'username-status unavailable';
+                    }
+                } catch (error) {
+                    console.error('Error checking username:', error);
+                    usernameSpinner.style.display = 'none';
+                }
+            }, 500);
+        });
+
+        // Prevent form submission if username is taken
+        form.addEventListener('submit', async function(e) {
+            const username = usernameInput.value.trim();
+            
+            try {
+                // Check both admin and user collections
+                const adminResponse = await fetch(`/api/check-admin-username?username=${encodeURIComponent(username)}`);
+                const adminData = await adminResponse.json();
+                
+                const userResponse = await fetch(`/api/check-username?username=${encodeURIComponent(username)}`);
+                const userData = await userResponse.json();
+                
+                const isAvailable = adminData.available && userData.available;
+                
+                if (!isAvailable) {
+                    e.preventDefault();
+                    alert('Please choose a different username - this one is already taken.');
+                }
+            } catch (error) {
+                console.error('Error checking username:', error);
+            }
+        });
+    </script>
+</body>
+</html> 

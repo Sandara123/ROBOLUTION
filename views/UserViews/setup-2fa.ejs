@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Two-Factor Authentication</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f5ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        .container {
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 70, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #001f5c;
+            margin-bottom: 20px;
+        }
+        
+        .qr-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .instructions {
+            margin-bottom: 20px;
+        }
+        
+        .secret-key {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            text-align: center;
+            margin: 20px 0;
+            word-break: break-all;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #001f5c;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccd7ea;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        .button {
+            background-color: #003399;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 12px;
+            width: 100%;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .button:hover {
+            background-color: #00286b;
+        }
+        
+        .error-message {
+            color: #d32f2f;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Setup Two-Factor Authentication</h1>
+        
+        <div class="instructions">
+            <p>Follow these steps to set up two-factor authentication:</p>
+            <ol>
+                <li>Download an authenticator app like Google Authenticator, Authy, or Microsoft Authenticator on your mobile device.</li>
+                <li>Scan the QR code below with your authenticator app.</li>
+                <li>Enter the 6-digit verification code from your authenticator app to verify setup.</li>
+            </ol>
+        </div>
+        
+        <div class="qr-container">
+            <img src="<%= qrCode %>" alt="QR Code for 2FA">
+        </div>
+        
+        <p>If you can't scan the QR code, you can manually enter this secret key into your authenticator app:</p>
+        <div class="secret-key">
+            <%= secret %>
+        </div>
+        
+        <% if (locals.error) { %>
+            <div class="error-message">
+                <%= error %>
+            </div>
+        <% } %>
+        
+        <form action="/verify-2fa-setup" method="POST">
+            <div class="form-group">
+                <label for="token">Verification Code</label>
+                <input type="text" id="token" name="token" placeholder="Enter 6-digit code" required>
+            </div>
+            
+            <button type="submit" class="button">Verify and Activate</button>
+        </form>
+    </div>
+</body>
+</html> 
