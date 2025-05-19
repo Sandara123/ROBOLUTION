@@ -21,6 +21,7 @@ const fetch = require('node-fetch'); // For fetching files from Cloudinary
 const qrcode = require('qrcode');
 const { exec } = require('child_process'); // For executing system commands
 const { ObjectId } = require('mongodb'); // Added for ObjectId usage
+const axios = require('axios');
 
 // Try to load connect-flash if available, but don't fail if it's not
 let flash;
@@ -4155,8 +4156,8 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
       
       try {
         // Download file from Cloudinary
-        const response = await fetch(file.url);
-        const data = await response.text();
+        const response = await axios.get(file.url, { responseType: 'text' });
+        const data = await response.data;
         const collectionData = JSON.parse(data);
         const collectionName = file.collection;
         
