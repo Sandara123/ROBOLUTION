@@ -14,6 +14,28 @@
       background-color: #ffffff;
       background-image: none;
     }
+    
+    <% if (locals.dashboard) { %>
+    /* Dashboard specific styles */
+    body {
+      padding: 0;
+      margin: 0;
+    }
+    
+    .content-wrapper {
+      padding-top: 0;
+    }
+    
+    /* Hide elements when in dashboard */
+    header, footer, .video-section, .back-to-top {
+      display: none !important;
+    }
+    
+    main {
+      padding-top: 20px !important;
+    }
+    <% } %>
+    
     /* Dropdown styles */
   .dropdown {
     position: relative;
@@ -294,6 +316,7 @@
 <body>
 <div class="content-wrapper">
 
+  <% if (!locals.dashboard) { %>
   <header>
     <div class="header-content">
       <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
@@ -306,7 +329,9 @@
         <a href="/manage-registrations" class="nav-button">Manage Registration</a>
         <a href="/manage-accounts" class="nav-button">Accounts</a>
         <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
+        <% if (user && user.role === 'superadmin') { %>
         <a href="/manage-backups" class="nav-button">Backups</a>
+        <% } %>
         <div class="dropdown">
           <button class="nav-button dropdown-btn">Regional</button>
           <div class="dropdown-content">
@@ -343,12 +368,15 @@
   <div class="video-section">
     <video src="/images/Robolution2025.mp4" loop muted autoplay playsinline></video>
   </div>
+  <% } %>
 
   <main>
 
+    <% if (!locals.dashboard) { %>
     <div class="NandU">
       <img src="/images/News and Updates.png" alt="News and Updates" class="NandU-banner">
     </div>
+    <% } %>
 
     <div class="posts-header">
       <h2>Posts by Year</h2>
@@ -406,6 +434,7 @@
 
   </main>
 
+  <% if (!locals.dashboard) { %>
   <footer>
     <div class="footer-content">
       <div class="footer-left">
@@ -431,9 +460,10 @@
       </footer>
     </div>
   </footer>
+  
+  <a href="#" class="back-to-top" id="backToTop">↑</a>
+  <% } %>
 </div>
-
-<a href="#" class="back-to-top" id="backToTop">↑</a>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {

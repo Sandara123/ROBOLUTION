@@ -15,6 +15,27 @@
       background-image: none;
     }
     
+    <% if (locals.dashboard) { %>
+    /* Dashboard specific styles */
+    body {
+      padding: 0;
+      margin: 0;
+    }
+    
+    .content-wrapper {
+      padding-top: 0;
+    }
+    
+    /* Hide elements when in dashboard */
+    header, footer, .back-to-top {
+      display: none !important;
+    }
+    
+    .accounts-container {
+      padding-top: 20px !important;
+    }
+    <% } %>
+    
     .accounts-container {
       max-width: 1200px;
       margin: 0 auto;

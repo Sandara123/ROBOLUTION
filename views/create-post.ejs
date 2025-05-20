@@ -5,7 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Create Post | Robolution</title>
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+  <script src="/js/script.js" defer></script>
+  <script src="/js/mobile.js" defer></script>
   <style>
+    /* Set background to white */
+    body, main {
+      background-color: #ffffff;
+      background-image: none;
+    }
+    
+    <% if (locals.dashboard) { %>
+    /* Dashboard specific styles */
+    body {
+      padding: 0;
+      margin: 0;
+    }
+    
+    .content-wrapper {
+      padding-top: 0;
+    }
+    
+    /* Hide elements when in dashboard */
+    header, footer, .video-section, .back-to-top {
+      display: none !important;
+    }
+    
+    main {
+      padding-top: 20px !important;
+    }
+    <% } %>
+    
     /* Add dropdown styles */
     .dropdown {
       position: relative;
@@ -86,38 +116,41 @@
   </style>
 </head>
 <body>
+<div class="content-wrapper">
 
+  <% if (!locals.dashboard) { %>
   <header>
     <div class="header-content">
-        <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
-        <nav class="header-nav">
-          <a href="/create-post" class="nav-button create-post-button">Create Post</a>
-          <a href="/index" class="nav-button">News</a>
-          <a href="/categories" class="nav-button">Categories</a>
-          <a href="/manage-categories" class="nav-button">Manage Categories</a>
-          <a href="/manage-registrations" class="nav-button">Manage Registration</a>
-          <a href="/manage-accounts" class="nav-button">Accounts</a>
-          <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
-          <% if (user && user.role === 'superadmin') { %>
-          <a href="/manage-backups" class="nav-button">Backups</a>
-          <% } %>
-          <div class="dropdown">
-            <button class="nav-button dropdown-btn">Regional</button>
-            <div class="dropdown-content">
-              <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
-                <a href="/admin-regional?region=All">All Regions</a>
-                <% uniqueRegions.forEach(function(region) { %>
-                  <a href="/admin-regional?region=<%= region %>"><%= region %></a>
-                <% }); %>
-              <% } else { %>
-                <div class="dropdown-empty">No regional posts available</div>
-              <% } %>
-            </div>
+      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
+      <nav class="header-nav">
+        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
+        <a href="/index" class="nav-button">News</a>
+        <a href="/categories" class="nav-button">Categories</a>
+        <a href="/manage-categories" class="nav-button">Manage Categories</a>
+        <a href="/manage-registrations" class="nav-button">Manage Registration</a>
+        <a href="/manage-accounts" class="nav-button">Accounts</a>
+        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
+        <% if (user && user.role === 'superadmin') { %>
+        <a href="/manage-backups" class="nav-button">Backups</a>
+        <% } %>
+        <div class="dropdown">
+          <button class="nav-button dropdown-btn">Regional</button>
+          <div class="dropdown-content">
+            <a href="/admin-regional?region=All">All Regions</a>
+            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
+              <% uniqueRegions.forEach(function(region) { %>
+                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
+              <% }); %>
+            <% } else { %>
+              <div class="dropdown-empty">No regional posts available</div>
+            <% } %>
           </div>
-          <a href="/logout" class="nav-button logout-button">Logout</a>
-        </nav>
+        </div>
+        <a href="/logout" class="nav-button logout-button">Logout</a>
+      </nav>
     </div>
   </header>
+  <% } %>
 
   <main class="main-create">
     <section>
@@ -177,46 +210,61 @@
     </section>
   </main>
 
-  <footer>
-      <p>Powered by Erovoutika</p>
+  <% if (!locals.dashboard) { %>
+  <footer class="fixed-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <p>Powered by Erovoutika</p>
+      </div>
+      <div class="footer-right">
+        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
+        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
+        <div class="social-icons">
+          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
+          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
+          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
+        </div>
+      </div>
+    </div>
   </footer>
+  <% } %>
+</div>
 
-  <script src="/js/script.js"></script>
-  <script>
-    // Add dropdown functionality
-    document.addEventListener('DOMContentLoaded', function() {
-      const dropdowns = document.querySelectorAll('.dropdown');
+<script>
+  // Add dropdown functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    const dropdowns = document.querySelectorAll('.dropdown');
+    
+    dropdowns.forEach(dropdown => {
+      const btn = dropdown.querySelector('.dropdown-btn');
+      const content = dropdown.querySelector('.dropdown-content');
       
-      dropdowns.forEach(dropdown => {
-        const btn = dropdown.querySelector('.dropdown-btn');
-        const content = dropdown.querySelector('.dropdown-content');
-        
-        // Show dropdown on hover
-        dropdown.addEventListener('mouseenter', () => {
-          content.style.display = 'block';
-        });
-        
-        // Hide dropdown when mouse leaves
-        dropdown.addEventListener('mouseleave', () => {
-          content.style.display = 'none';
-        });
+      // Show dropdown on hover
+      dropdown.addEventListener('mouseenter', () => {
+        content.style.display = 'block';
       });
-
-      // Your existing date input JavaScript
-      const useCurrentDateCheckbox = document.getElementById('useCurrentDate');
-      const customDateInput = document.getElementById('customDateInput');
-      const dateInput = document.getElementById('date');
-
-      useCurrentDateCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-          customDateInput.style.display = 'none';
-          dateInput.disabled = true;
-        } else {
-          customDateInput.style.display = 'block';
-          dateInput.disabled = false;
-        }
+      
+      // Hide dropdown when mouse leaves
+      dropdown.addEventListener('mouseleave', () => {
+        content.style.display = 'none';
       });
     });
-  </script>
+
+    // Your existing date input JavaScript
+    const useCurrentDateCheckbox = document.getElementById('useCurrentDate');
+    const customDateInput = document.getElementById('customDateInput');
+    const dateInput = document.getElementById('date');
+
+    useCurrentDateCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        customDateInput.style.display = 'none';
+        dateInput.disabled = true;
+      } else {
+        customDateInput.style.display = 'block';
+        dateInput.disabled = false;
+      }
+    });
+  });
+</script>
 </body>
 </html>

@@ -1,0 +1,32 @@
+<% if (locals.dashboard) { %>
+<style>
+  /* Dashboard specific styles */
+  body {
+    padding: 0;
+    margin: 0;
+  }
+  
+  .content-wrapper {
+    padding-top: 0;
+  }
+  
+  /* Hide elements when in dashboard */
+  header, footer, .video-section, .back-to-top {
+    display: none !important;
+  }
+  
+  main {
+    padding-top: 20px !important;
+  }
+  
+  /* Container padding adjustments */
+  .accounts-container, 
+  .registrations-container,
+  .categories-container,
+  .main-container,
+  .posts-container,
+  .backups-container {
+    padding-top: 20px !important;
+  }
+</style>
+<% } %> 
