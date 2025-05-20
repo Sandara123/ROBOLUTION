@@ -191,6 +191,122 @@ app.use((req, res, next) => {
   next();
 });
 
+// ==== START MOVED MIDDLEWARE ====
+
+// Middleware to require login for regular users
+const requireLogin = (req, res, next) => {
+    if (!req.session.user || !req.session.user.id) {
+        // Store the original URL to redirect back after login
+        const redirectUrl = req.originalUrl;
+        req.flash('error', 'You must be logged in to view this page.');
+        return res.redirect(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
+    }
+    next();
+};
+
+// Protected route middleware
+const requireAdmin = (req, res, next) => {
+    console.log('Checking admin access:', {
+        hasSession: !!req.session,
+        user: req.session?.user
+    });
+    
+    if (!req.session || !req.session.user || !req.session.user.isAdmin) {
+        console.log('Unauthorized access attempt');
+        return res.redirect('/login');
+    }
+    
+    // Validate admin exists in database before proceeding
+    const validateAdminUser = async () => {
+        try {
+            // Check admin database directly using the native MongoDB driver
+            console.log('Validating admin access for:', req.session.user.username);
+            
+            const ObjectId = require('mongodb').ObjectId;
+            let adminId;
+            
+            try {
+                // Try converting to ObjectId if possible
+                if (req.session.user.id && req.session.user.id.length === 24) {
+                    adminId = new ObjectId(req.session.user.id);
+                }
+            } catch (err) {
+                console.log('Error converting admin ID to ObjectId:', err.message);
+            }
+            
+            // Check for admin by ID or username
+            const adminQuery = { $or: [] };
+            
+            // Add ID queries for both string and ObjectId formats
+            if (adminId) {
+                adminQuery.$or.push({ _id: adminId });
+            }
+            if (req.session.user.id) {
+                adminQuery.$or.push({ _id: req.session.user.id });
+            }
+            
+            // Add username query
+            if (req.session.user.username) {
+                adminQuery.$or.push({ username: req.session.user.username });
+            }
+            
+            // Check if we have any valid query conditions
+            if (adminQuery.$or.length === 0) {
+                console.log('No valid admin identification found in session');
+                req.session.destroy();
+                return res.redirect('/login');
+            }
+            
+            // Try to find admin using MongoDB client
+            let adminFound = false;
+            
+            // First check in adminDB, which is the native MongoDB connection
+            if (db) {
+                console.log('Checking admin in adminDB:', JSON.stringify(adminQuery));
+                const adminUser = await db.collection('admins').findOne(adminQuery);
+                if (adminUser) {
+                    console.log('Admin validated in adminDB collection');
+                    adminFound = true;
+                }
+            }
+            
+            // Also check robolution database as a fallback
+            if (!adminFound && robolutionDb) {
+                console.log('Checking admin in robolution database');
+                const adminUser = await robolutionDb.collection('admins').findOne(adminQuery);
+                
+                if (adminUser) {
+                    console.log('Admin validated in robolution admins collection');
+                    adminFound = true;
+                }
+            }
+            
+            if (!adminFound) {
+                console.log('Admin not found in any database:', req.session.user.username || req.session.user.id);
+                req.session.destroy();
+                return res.redirect('/login?message=session_invalid');
+            }
+            
+            // Admin exists, proceed to the next middleware
+            next();
+        } catch (error) {
+            console.error('Error validating admin:', error);
+            // Instead of just next(), handle the error more strictly:
+            req.session.destroy(err => {
+                if (err) {
+                    console.error('Error destroying session during admin validation failure:', err);
+                }
+                return res.redirect('/login?message=admin_validation_error');
+            });
+        }
+    };
+    
+    // Run validation
+    validateAdminUser();
+};
+
+// ==== END MOVED MIDDLEWARE ====
+
 // MongoDB Backup Functionality
 const setupDatabaseBackups = () => {
   const backupsDir = path.join(__dirname, 'database_backups');
@@ -567,106 +683,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));  // To serve static files
 app.use(express.json());
 
-// Protected route middleware
-const requireAdmin = (req, res, next) => {
-    console.log('Checking admin access:', {
-        hasSession: !!req.session,
-        user: req.session?.user
-    });
-    
-    if (!req.session || !req.session.user || !req.session.user.isAdmin) {
-        console.log('Unauthorized access attempt');
-        return res.redirect('/login');
-    }
-    
-    // Validate admin exists in database before proceeding
-    const validateAdminUser = async () => {
-        try {
-            // Check admin database directly using the native MongoDB driver
-            console.log('Validating admin access for:', req.session.user.username);
-            
-            const ObjectId = require('mongodb').ObjectId;
-            let adminId;
-            
-            try {
-                // Try converting to ObjectId if possible
-                if (req.session.user.id && req.session.user.id.length === 24) {
-                    adminId = new ObjectId(req.session.user.id);
-                }
-            } catch (err) {
-                console.log('Error converting admin ID to ObjectId:', err.message);
-            }
-            
-            // Check for admin by ID or username
-            const adminQuery = { $or: [] };
-            
-            // Add ID queries for both string and ObjectId formats
-            if (adminId) {
-                adminQuery.$or.push({ _id: adminId });
-            }
-            if (req.session.user.id) {
-                adminQuery.$or.push({ _id: req.session.user.id });
-            }
-            
-            // Add username query
-            if (req.session.user.username) {
-                adminQuery.$or.push({ username: req.session.user.username });
-            }
-            
-            // Check if we have any valid query conditions
-            if (adminQuery.$or.length === 0) {
-                console.log('No valid admin identification found in session');
-                req.session.destroy();
-                return res.redirect('/login');
-            }
-            
-            // Try to find admin using MongoDB client
-            let adminFound = false;
-            
-            // First check in adminDB, which is the native MongoDB connection
-            if (db) {
-                console.log('Checking admin in adminDB:', JSON.stringify(adminQuery));
-                const adminUser = await db.collection('admins').findOne(adminQuery);
-                if (adminUser) {
-                    console.log('Admin validated in adminDB collection');
-                    adminFound = true;
-                }
-            }
-            
-            // Also check robolution database as a fallback
-            if (!adminFound && robolutionDb) {
-                console.log('Checking admin in robolution database');
-                const adminUser = await robolutionDb.collection('admins').findOne(adminQuery);
-                
-                if (adminUser) {
-                    console.log('Admin validated in robolution admins collection');
-                    adminFound = true;
-                }
-            }
-            
-            if (!adminFound) {
-                console.log('Admin not found in any database:', req.session.user.username || req.session.user.id);
-                req.session.destroy();
-                return res.redirect('/login?message=session_invalid');
-            }
-            
-            // Admin exists, proceed to the next middleware
-            next();
-        } catch (error) {
-            console.error('Error validating admin:', error);
-            // Instead of just next(), handle the error more strictly:
-            req.session.destroy(err => {
-                if (err) {
-                    console.error('Error destroying session during admin validation failure:', err);
-                }
-                return res.redirect('/login?message=admin_validation_error');
-            });
-        }
-    };
-    
-    // Run validation
-    validateAdminUser();
-};
+// Protected route middleware // THIS IS THE ORIGINAL LOCATION OF requireAdmin
+// const requireAdmin = (req, res, next) => { ... }; // This block is now removed
 
 app.use('/images', express.static('public/images', {
   setHeaders: (res, path) => {
@@ -5485,25 +5503,6 @@ app.get('/account/user/make-admin/:id', requireAdmin, async (req, res) => {
     res.redirect('/manage-accounts');
   }
 });
-
-// Middleware to require login for regular users
-const requireLogin = (req, res, next) => {
-    if (!req.session.user || !req.session.user.id) {
-        // Store the original URL to redirect back after login
-        const redirectUrl = req.originalUrl;
-        req.flash('error', 'You must be logged in to view this page.');
-        return res.redirect(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
-    }
-    next();
-};
-
-app.use('/images', express.static('public/images', {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.webm')) {
-      res.setHeader('Content-Type', 'video/webm');
-    }
-  }
-}));
 
 // Route for admin dashboard
 app.get('/admin-dashboard', requireAdmin, async (req, res) => {
