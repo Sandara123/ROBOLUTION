@@ -430,7 +430,20 @@
 </div>
 
 <script>
-    // Function to confirm admin deletion  function confirmDeleteAdmin(id, username) {    if (confirm(`Are you sure you want to delete the admin account "${username}"? This action cannot be undone.`)) {      window.location.href = `/account/admin/delete/${id}`;    }  }    // Function to confirm admin password reset  function confirmResetAdminPassword(id, username) {    if (confirm(`Are you sure you want to reset the password for admin "${username}"? They will be required to set up 2FA after login.`)) {      window.location.href = `/account/admin/reset-password/${id}`;    }  }    
+  // Function to confirm admin deletion
+  function confirmDeleteAdmin(id, username) {
+    if (confirm(`Are you sure you want to delete the admin account "${username}"? This action cannot be undone.`)) {
+      window.location.href = `/account/admin/delete/${id}`;
+    }
+  }
+
+  // Function to confirm admin password reset
+  function confirmResetAdminPassword(id, username) {
+    if (confirm(`Are you sure you want to reset the password for admin "${username}"? They will be required to set up 2FA after login.`)) {
+      window.location.href = `/account/admin/reset-password/${id}`;
+    }
+  }
+    
   // Function to confirm user deletion
   function confirmDeleteUser(id, username) {
     if (confirm(`Are you sure you want to delete the user account "${username}"? This action cannot be undone.`)) {

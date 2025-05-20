@@ -5498,24 +5498,27 @@ app.get('/account/user/make-admin/:id', requireAdmin, async (req, res) => {
     // Find the user in the User collection
     let userToPromote = null;
     const usersCollection = robolutionDb.collection('users');
+    const ObjectId = require('mongodb').ObjectId;
 
-    // 1. Try direct string ID lookup
-    userToPromote = await usersCollection.findOne({ _id: userId });
-    if (userToPromote) console.log('Found user by direct string ID in users collection.');
-
-    // 2. Try ObjectID lookup if string ID failed
-    if (!userToPromote && userId.match(/^[0-9a-fA-F]{24}$/)) {
-      try {
-        const ObjectId = require('mongodb').ObjectId;
-        userToPromote = await usersCollection.findOne({ _id: new ObjectId(userId) });
-        if (userToPromote) console.log('Found user by ObjectId in users collection.');
-      } catch (err) {
-        console.error('Error converting userId to ObjectId for users collection:', err.message);
-      }
+    if (userId.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
+            const userObjectId = new ObjectId(userId);
+            userToPromote = await usersCollection.findOne({ _id: userObjectId });
+            if (userToPromote) console.log('Found user by ObjectId in users collection.');
+        } catch (err) {
+            console.error('Error converting userId to ObjectId or finding user:', err.message);
+            // If ID format is bad or conversion fails, it's an invalid request for this operation
+            req.flash('error', 'Invalid user ID format.');
+            return res.redirect('/manage-accounts');
+        }
+    } else {
+        // If ID is not a valid ObjectId hex string format
+        req.flash('error', 'Invalid user ID format.');
+        return res.redirect('/manage-accounts');
     }
 
     if (!userToPromote) {
-      req.flash('error', 'User not found or ID is invalid.');
+      req.flash('error', 'User not found with the provided ID.');
       return res.redirect('/manage-accounts');
     }
 
