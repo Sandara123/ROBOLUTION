@@ -5,6 +5,7 @@ const express = require('express');
 const app = express();
 const port = process.env.SERVER_PORT || process.env.PORT || 3000;
 const mongoose = require('mongoose');
+const moment = require('moment'); // Added moment
 const Post = require('./models/Post');
 const multer = require('multer');  // To handle file uploads
 const path = require('path');
@@ -667,14 +668,6 @@ const requireAdmin = (req, res, next) => {
     validateAdminUser();
 };
 
-// Middleware to require login for regular users
-const requireLogin = (req, res, next) => {
-    if (!req.session.user || !req.session.user.id) {
-        return res.redirect('/login?redirect=' + encodeURIComponent(req.originalUrl));
-    }
-    next();
-};
-
 app.use('/images', express.static('public/images', {
   setHeaders: (res, path) => {
     if (path.endsWith('.webm')) {
@@ -712,29 +705,23 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Create post form route
+// Update create post route with middleware
 app.get('/create-post', requireAdmin, async (req, res) => {
     try {
-    // Check if the user is an admin
-    if (!req.session.user || !req.session.user.isAdmin) {
-      return res.redirect('/robolution');
-    }
-
-    // Check if loading in dashboard
-    const isDashboard = req.query.dashboard === 'true';
-    
-    // Get all unique regions for the dropdown
-    const posts = await Post.find({});
-    const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))];
-    
+        const isDashboard = req.query.dashboard === 'true';
+        // Get unique regions for the dropdown
+        const allPosts = await Post.find();
+        const uniqueRegions = [...new Set(allPosts.map(post => post.region).filter(region => region && region !== 'All'))].sort();
+        
+        console.log("Create Post Route Hit - User:", req.session.user);
         res.render('create-post', { 
             uniqueRegions,
-      user: req.session.user,
-      dashboard: isDashboard
+            user: req.session.user,
+            dashboard: isDashboard // Pass dashboard status
         });
     } catch (error) {
         console.error('Error loading create post page:', error);
-    res.status(500).send('An error occurred');
+        res.status(500).send('Error loading create post page');
     }
 });
 
@@ -775,42 +762,33 @@ app.get('/', async (req, res) => {
 });
 
 // Admin index page with direct MongoDB access
-app.get('/index', requireAdmin, async (req, res) => {
+app.get('/index', requireAdmin, async (req, res) => { // Added requireAdmin here
   try {
-    // Check if the user is an admin
-    if (!req.session.user || !req.session.user.isAdmin) {
-      return res.redirect('/robolution');
-    }
-    
-    const sort = req.query.sort || 'desc';
-    const search = req.query.search || '';
     const isDashboard = req.query.dashboard === 'true';
+    console.log('Accessing admin index page');
     
-    let query = {};
-    let sortQuery = { createdAt: sort === 'asc' ? 1 : -1 };
+    const sortDirection = req.query.sort === 'asc' ? 1 : -1;
     
-    if (search) {
-      query = {
-        $or: [
-          { title: { $regex: search, $options: 'i' } },
-          { content: { $regex: search, $options: 'i' } },
-          { author: { $regex: search, $options: 'i' } }
-        ]
-      };
-    }
+    // DIRECT COLLECTION ACCESS
+    const postsCollection = robolutionDb.collection('posts');
     
-    const posts = await Post.find(query).sort(sortQuery);
+    // Fetch all posts using native MongoDB
+    let posts = await postsCollection.find().sort({ createdAt: sortDirection }).toArray();
+    console.log(`Found ${posts.length} posts for admin index`);
+    
+    // Convert MongoDB documents to JavaScript objects
+    posts = JSON.parse(JSON.stringify(posts));
     
     res.render('index', { 
-      posts, 
-      sort, 
-      search,
-      user: req.session.user,
-      dashboard: isDashboard
+        posts, 
+        sort: req.query.sort || 'desc',
+        user: req.session.user, // Pass user session
+        uniqueRegions: res.locals.uniqueRegions, // Pass uniqueRegions
+        dashboard: isDashboard // Pass dashboard status
     });
   } catch (error) {
-    console.error('Error fetching posts:', error);
-    res.status(500).send('Error loading posts');
+    console.error('Error fetching posts for admin index:', error);
+    res.status(500).send('An error occurred while fetching posts');
   }
 });
 
@@ -944,12 +922,13 @@ app.get('/categories/:id', async (req, res) => {
 // Render manage categories page
 app.get('/manage-categories', requireAdmin, async (req, res) => {
   try {
-    const isDashboard = req.query.dashboard === 'true'; // Added
+    const isDashboard = req.query.dashboard === 'true';
     const [categories, posts] = await Promise.all([
       Category.find(),
       Post.find()
     ]);
 
+    // Get unique regions from posts
     const uniqueRegions = [...new Set(posts
       .map(post => post.region)
       .filter(region => region && region !== 'All')
@@ -957,9 +936,7 @@ app.get('/manage-categories', requireAdmin, async (req, res) => {
 
     res.render('manage-categories', { 
       categories,
-      uniqueRegions,
-      user: req.session.user, // Added for consistency
-      dashboard: isDashboard  // Added
+      uniqueRegions
     });
   } catch (error) {
     console.error('Error loading manage categories:', error);
@@ -1377,35 +1354,18 @@ app.post('/login', async (req, res) => {
         console.log('Login attempt:', { username, hasToken: !!token });
         
         // DIRECT DB ACCESS: First check admin collection
-    const adminCollection = db.collection('admins');
-    let user = await adminCollection.findOne({ username });
-    
-    // If not found in adminDB, check in robolutionDb
-    if (!user) {
-      const adminRobolutionCollection = robolutionDb.collection('admins');
-      user = await adminRobolutionCollection.findOne({ username });
-    }
-    
-    // If still not found, check regular users collection
-    if (!user) {
-      const usersCollection = robolutionDb.collection('users');
-      user = await usersCollection.findOne({ username });
-    }
-    
-    if (!user) {
-                console.log('User not found:', username);
+        const adminUser = await db.collection('admins').findOne({ username });
+        
+        if (adminUser) {
+            const isPasswordValid = await bcrypt.compare(password, adminUser.password);
+            
+            if (!isPasswordValid) {
+                console.log('Invalid password for admin:', username);
                 return res.json({ success: false, message: 'Invalid username or password' });
             }
             
-    // Check if password matches
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-                console.log('Invalid password for user:', username);
-                return res.json({ success: false, message: 'Invalid username or password' });
-            }
-            
-            // Check if this user needs to set up 2FA after password reset
-    if (user.needs2FASetup) {
+            // Check if this admin needs to set up 2FA after password reset
+            if (adminUser.needs2FASetup) {
                 return res.json({ 
                     success: false, 
                     requireTwoFactor: true,
@@ -1416,36 +1376,54 @@ app.post('/login', async (req, res) => {
                 });
             }
             
-            // Check if 2FA is enabled for this user
-    if (user.twoFactorEnabled) {
+            // Check if 2FA is enabled
+            if (adminUser.twoFactorEnabled) {
                 // If no token provided but 2FA is enabled, request token
                 if (!token) {
                     return res.json({ 
                         success: false, 
-                        requireTwoFactor: true, 
+                        requireTwoFactor: true,
                         needs2FASetup: false,
                         message: 'Please enter your two-factor authentication code'
                     });
                 }
                 
                 // Verify the token
-      const isValidToken = verifyTwoFactorToken(user, token);
-      if (!isValidToken) {
+                const verified = speakeasy.totp.verify({
+                    secret: adminUser.twoFactorSecret,
+                    encoding: 'base32',
+                    token: token,
+                    window: 1 // Allow 1 step before/after for time drift
+                });
+                
+                if (!verified) {
+                    // Also check backup codes
+                    const isBackupCode = adminUser.backupCodes && 
+                                         adminUser.backupCodes.includes(token);
+                    
+                    if (!isBackupCode) {
                         return res.json({ 
                             success: false, 
                             requireTwoFactor: true,
-                            needs2FASetup: false, 
+                            needs2FASetup: false,
                             message: 'Invalid two-factor code. Please try again.'
                         });
-      }
-    }
-    
-    // Create session with admin flag based on role
+                    } else {
+                        // If using backup code, remove it from the list
+                        await db.collection('admins').updateOne(
+                            { username: adminUser.username },
+                            { $pull: { backupCodes: token } }
+                        );
+                    }
+                }
+            }
+            
+            // Set admin session with all necessary data
             req.session.user = {
-      id: user._id,
-      username: user.username,
-      isAdmin: user.role === 'admin' || user.role === 'superadmin' || user.username === 'kris',
-      role: user.role || (user.isAdmin ? 'admin' : 'user')
+                id: adminUser._id.toString ? adminUser._id.toString() : adminUser._id,
+                username: adminUser.username,
+                isAdmin: true,
+                role: adminUser.role || 'admin'
             };
             
             // Force session save and wait for it
@@ -1460,27 +1438,131 @@ app.post('/login', async (req, res) => {
                 });
             });
             
-    console.log('Login successful - Session saved:', {
+            console.log('Admin login successful - Session saved:', {
                 sessionID: req.sessionID,
                 user: req.session.user,
                 cookie: req.session.cookie
             });
             
-    // Determine redirect URL based on user role
-    let redirectUrl = redirect || '/user-landing'; // Default for regular users
-    
-    // If user is admin, redirect to admin dashboard
-    if (req.session.user.isAdmin) {
-      redirectUrl = '/admin-dashboard';
-    }
+            // Add localStorage configuration
+            const redirectUrl = redirect || '/admin-dashboard'; // Changed from /index
             
             return res.json({ 
                 success: true,
                 redirectUrl: redirectUrl,
-      role: req.session.user.role || 'user',
-      message: 'Login successful! Welcome back, ' + user.username,
+                role: adminUser.role || 'admin',
+                message: 'Login successful! Welcome back, ' + adminUser.username,
                 setLocalStorage: true  // Signal client to set localStorage
             });
+        } else {
+            // DIRECT DB ACCESS: If not an admin, check regular users collection
+            const usersCollection = robolutionDb.collection('users');
+            const regularUser = await usersCollection.findOne({ username });
+            
+            if (!regularUser) {
+                console.log('User not found:', username);
+                return res.json({ success: false, message: 'Invalid username or password' });
+            }
+            
+            const isPasswordValid = await bcrypt.compare(password, regularUser.password);
+            
+            if (!isPasswordValid) {
+                console.log('Invalid password for user:', username);
+                return res.json({ success: false, message: 'Invalid username or password' });
+            }
+            
+            // Check if this user needs to set up 2FA after password reset
+            if (regularUser.needs2FASetup) {
+                return res.json({ 
+                    success: false, 
+                    requireTwoFactor: true,
+                    needs2FASetup: true,
+                    message: 'Your account has been reset. Please set up two-factor authentication.',
+                    username: username,
+                    password: password
+                });
+            }
+            
+            // Check if 2FA is enabled for this user
+            if (regularUser.twoFactorEnabled) {
+                // If no token provided but 2FA is enabled, request token
+                if (!token) {
+                    return res.json({ 
+                        success: false, 
+                        requireTwoFactor: true, 
+                        needs2FASetup: false,
+                        message: 'Please enter your two-factor authentication code'
+                    });
+                }
+                
+                // Verify the token
+                const verified = speakeasy.totp.verify({
+                    secret: regularUser.twoFactorSecret,
+                    encoding: 'base32',
+                    token: token,
+                    window: 1
+                });
+                
+                if (!verified) {
+                    // Check backup codes
+                    const isBackupCode = regularUser.backupCodes && 
+                                        regularUser.backupCodes.includes(token);
+                    
+                    if (!isBackupCode) {
+                        return res.json({ 
+                            success: false, 
+                            requireTwoFactor: true,
+                            needs2FASetup: false, 
+                            message: 'Invalid two-factor code. Please try again.'
+                        });
+                    } else {
+                        // Remove used backup code using direct MongoDB update
+                        const updatedBackupCodes = regularUser.backupCodes.filter(code => code !== token);
+                        await usersCollection.updateOne(
+                            { _id: regularUser._id },
+                            { $set: { backupCodes: updatedBackupCodes } }
+                        );
+                    }
+                }
+            }
+            
+            // Set regular user session
+            req.session.user = {
+                id: regularUser._id.toString ? regularUser._id.toString() : regularUser._id,
+                username: regularUser.username,
+                isAdmin: false,
+                role: 'user'
+            };
+            
+            // Force session save and wait for it
+            await new Promise((resolve, reject) => {
+                req.session.save((err) => {
+                    if (err) {
+                        console.error('Session save error:', err);
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+            
+            console.log('User login successful - Session saved:', {
+                sessionID: req.sessionID,
+                user: req.session.user,
+                cookie: req.session.cookie
+            });
+            
+            // Get redirect URL from request or use default
+            const redirectUrl = redirect || '/user-landing'; // User redirect remains the same
+            
+            return res.json({ 
+                success: true,
+                redirectUrl: redirectUrl,
+                role: 'user',
+                message: 'Login successful! Welcome back, ' + regularUser.username,
+                setLocalStorage: true  // Signal client to set localStorage
+            });
+        }
     } catch (error) {
         console.error('Login error:', error);
         res.json({ success: false, message: 'An error occurred during login. Please try again.' });
@@ -1944,123 +2026,6 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// ==== USER PROFILE ROUTES ==== 
-
-// GET route to display user profile page
-app.get('/profile', requireLogin, async (req, res) => {
-    try {
-        const user = await User.findById(req.session.user.id);
-        if (!user) {
-            req.flash('error', 'User not found.');
-            return res.redirect('/login');
-        }
-
-        const registrations = await Registration.find({ userId: req.session.user.id }).sort({ registeredAt: -1 });
-
-        let age = null;
-        if (user.birthDate && user.birthDate.month && user.birthDate.year) {
-            const birthDate = new Date(user.birthDate.year, user.birthDate.month - 1); // Month is 0-indexed
-            const today = new Date();
-            age = today.getFullYear() - birthDate.getFullYear();
-            const m = today.getMonth() - birthDate.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-            }
-        }
-
-        res.render('UserViews/profile', {
-            user: user.toObject(), // Convert to plain object for template
-            profilePicture: user.profilePicture || '/images/default-profile.jpg',
-            age,
-            registrations,
-            uniqueRegions: res.locals.uniqueRegions || []
-        });
-    } catch (error) {
-        console.error('Error fetching user profile:', error);
-        req.flash('error', 'Error loading profile. Please try again.');
-        res.redirect('/user-landing');
-    }
-});
-
-// POST route to update user profile information
-app.post('/profile/update', requireLogin, upload.single('profilePicture'), async (req, res) => {
-    try {
-        const userId = req.session.user.id;
-        const { birthMonth, birthYear, school, address } = req.body;
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-
-        // Update basic info
-        if (birthMonth && birthYear) {
-            user.birthDate = { month: parseInt(birthMonth), year: parseInt(birthYear) };
-        }
-        user.school = school || user.school;
-        user.address = address || user.address;
-
-        // Handle profile picture upload
-        if (req.file) {
-            try {
-                const filePath = req.file.path;
-                const cloudinaryResult = await uploadToCloudinary(filePath, 'robolution/profile_pictures');
-                user.profilePicture = cloudinaryResult;
-            } catch (uploadError) {
-                console.error('Cloudinary upload error:', uploadError);
-                // Optionally, decide if this is a hard fail or if profile updates without image change
-                return res.status(500).json({ success: false, message: 'Error uploading profile picture.' });
-            }
-        }
-
-        await user.save();
-        // Update session user details if necessary, e.g., if fullName or other display info changes
-        // req.session.user.fullName = user.fullName; (if fullName were editable here)
-
-        res.json({ success: true, message: 'Profile updated successfully!', profilePicture: user.profilePicture });
-
-    } catch (error) {
-        console.error('Error updating profile:', error);
-        res.status(500).json({ success: false, message: 'An error occurred while updating profile.' });
-    }
-});
-
-// POST route to change user password
-app.post('/profile/change-password', requireLogin, async (req, res) => {
-    try {
-        const userId = req.session.user.id;
-        const { currentPassword, newPassword, confirmPassword } = req.body;
-
-        if (newPassword !== confirmPassword) {
-            return res.status(400).json({ success: false, message: 'New passwords do not match.' });
-        }
-        
-        if (newPassword.length < 8) { // Basic validation, align with signup
-            return res.status(400).json({ success: false, message: 'New password must be at least 8 characters long.' });
-        }
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ success: false, message: 'User not found.' });
-        }
-
-        const isMatch = await bcrypt.compare(currentPassword, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ success: false, message: 'Incorrect current password.' });
-        }
-
-        const saltRounds = 10;
-        user.password = await bcrypt.hash(newPassword, saltRounds);
-        await user.save();
-
-        res.json({ success: true, message: 'Password changed successfully!' });
-
-    } catch (error) {
-        console.error('Error changing password:', error);
-        res.status(500).json({ success: false, message: 'An error occurred while changing password.' });
-    }
-});
-
 // Update routes for 2FA setup and verification
 app.get('/setup-2fa', async (req, res) => {
     // Check if user is logged in and is an admin
@@ -2205,9 +2170,13 @@ app.get('/regional', async (req, res) => {
 });
 
 // Admin regional page - similar to regional but with admin controls
-app.get('/admin-regional', requireAdmin, async (req, res) => { // Added requireAdmin, removed manual check
+app.get('/admin-regional', async (req, res) => {
+  // Check if user is logged in and is an admin
+  if (!req.session.user || !req.session.user.isAdmin) {
+    return res.redirect('/login');
+  }
+  
   try {
-    const isDashboard = req.query.dashboard === 'true'; // Added
     const region = req.query.region || 'All';
     const sortDirection = req.query.sort === 'asc' ? 1 : -1;
     
@@ -2225,9 +2194,7 @@ app.get('/admin-regional', requireAdmin, async (req, res) => { // Added requireA
       posts, 
       region,
       uniqueRegions,
-      sort: req.query.sort || 'desc',
-      user: req.session.user, // Added for consistency
-      dashboard: isDashboard  // Added
+      sort: req.query.sort || 'desc'
     });
   } catch (error) {
     console.error('Error fetching admin regional posts:', error);
@@ -2279,19 +2246,6 @@ app.get('/post/:id', async (req, res) => {
 // Health check route for Render
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
-});
-
-// Route for admin dashboard
-app.get('/admin-dashboard', requireAdmin, (req, res) => {
-    // Check if the user is an admin (already handled by requireAdmin, but good for clarity)
-    if (!req.session.user || !req.session.user.isAdmin) {
-        return res.redirect('/login');
-    }
-    res.render('admin-dashboard', { 
-        user: req.session.user,
-        // Pass any other necessary data for the dashboard
-        uniqueRegions: res.locals.uniqueRegions || [] 
-    });
 });
 
 // API endpoint to check username availability for users
@@ -2433,41 +2387,6 @@ app.post('/delete-post/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Route for admin to view all user profiles
-app.get('/admin/user-profiles', requireAdmin, async (req, res) => {
-    try {
-        const isDashboard = req.query.dashboard === 'true';
-        const search = req.query.search || '';
-        let query = {};
-
-        if (search) {
-            query = {
-                $or: [
-                    { fullName: { $regex: search, $options: 'i' } },
-                    { username: { $regex: search, $options: 'i' } },
-                    { email: { $regex: search, $options: 'i' } },
-                    { school: { $regex: search, $options: 'i' } }
-                ]
-            };
-        }
-
-        const users = await User.find(query);
-        const posts = await Post.find({}); // For uniqueRegions
-        const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
-
-        res.render('admin-user-profiles', {
-            users,
-            search,
-            user: req.session.user, // Admin user session
-            uniqueRegions,
-            dashboard: isDashboard
-        });
-    } catch (error) {
-        console.error('Error loading admin user profiles page:', error);
-        res.status(500).send('An error occurred while loading user profiles.');
-    }
-});
-
 // Add routes for user 2FA setup
 app.get('/user/setup-2fa', async (req, res) => {
     // Check if user is logged in
@@ -2564,9 +2483,8 @@ app.post('/user/verify-2fa-setup', async (req, res) => {
 });
 
 // Route to manage registrations
-app.get('/manage-registrations', requireAdmin, async (req, res) => { // Added requireAdmin
+app.get('/manage-registrations', async (req, res) => {
   try {
-    const isDashboard = req.query.dashboard === 'true'; // Added
     // Get filter parameters
     const category = req.query.category || 'all';
     const workshop = req.query.workshop || 'all';
@@ -2626,14 +2544,12 @@ app.get('/manage-registrations', requireAdmin, async (req, res) => { // Added re
     // Render the page with data
     res.render('manage-registrations', {
       registrations,
-      posts, // Used for its own filters, not directly for dashboard context header
+      posts,
       category,
       workshop,
       search,
       payment,
-      verified,
-      user: req.session.user, // Added for consistency
-      dashboard: isDashboard  // Added
+      verified
     });
   } catch (error) {
     console.error('Error fetching registrations:', error);
@@ -2842,88 +2758,2880 @@ app.get('/registration/:id', async (req, res) => {
 // Route to view all user accounts
 app.get('/manage-accounts', requireAdmin, async (req, res) => {
   try {
-    // Check if loading in dashboard
     const isDashboard = req.query.dashboard === 'true';
+    // Get query parameters for filtering
+    const search = req.query.search || '';
+    const filter2FA = req.query.filter2FA || '';
+    const adminRole = req.query.adminRole || '';
     
-    // Get admins from adminDB (primary) and robolutionDb (backup)
-    const adminsFromAdminDB = await db.collection('admins').find({}).toArray();
-    const adminsFromRobolutionDB = await robolutionDb.collection('admins').find({}).toArray();
+    // Build queries for admins
+    let adminQuery = {};
+    if (search) {
+      adminQuery.username = { $regex: search, $options: 'i' };
+    }
+    if (filter2FA === 'enabled') {
+      adminQuery.twoFactorEnabled = true;
+    } else if (filter2FA === 'disabled') {
+      adminQuery.twoFactorEnabled = { $ne: true };
+    }
+    if (adminRole && adminRole !== 'user') {
+      adminQuery.role = adminRole;
+    }
     
-    // Combine and deduplicate admins based on username
-    const combinedAdmins = [];
-    const seenUsernames = new Set();
+    // Get admin accounts from adminDB with filters
+    const adminAccounts = adminRole === 'user' ? [] : await db.collection('admins').find(adminQuery).toArray();
     
-    // Process adminDB admins first (they take precedence)
-    adminsFromAdminDB.forEach(admin => {
-      combinedAdmins.push(admin);
-      seenUsernames.add(admin.username);
-    });
+    // Build queries for users
+    let userQuery = {};
+    if (search) {
+      userQuery.$or = [
+        { username: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { fullName: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (filter2FA === 'enabled') {
+      userQuery.twoFactorEnabled = true;
+    } else if (filter2FA === 'disabled') {
+      userQuery.twoFactorEnabled = { $ne: true };
+    }
     
-    // Add any unique admins from robolutionDb
-    adminsFromRobolutionDB.forEach(admin => {
-      if (!seenUsernames.has(admin.username)) {
-        combinedAdmins.push(admin);
-        seenUsernames.add(admin.username);
-      }
-    });
-    
-    // Get users from robolutionDb
-    const users = await robolutionDb.collection('users').find({}).toArray();
-    
-    // Get unique regions for the navigation dropdown
-    const posts = await Post.find({});
-    const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))];
+    // Get regular user accounts with filters
+    const regularUsers = adminRole !== '' && adminRole !== 'user' ? [] : await User.find(userQuery).sort({ createdAt: -1 });
     
     res.render('manage-accounts', {
-      admins: combinedAdmins, // Corrected from adminAccounts
-      users: users,           // Corrected from userAccounts
-      uniqueRegions,
+      admins: adminAccounts,
+      users: regularUsers,
       user: req.session.user,
-      dashboard: isDashboard
+      search: search,
+      filter2FA: filter2FA,
+      adminRole: adminRole,
+      dashboard: isDashboard // Pass dashboard status to template
     });
   } catch (error) {
-    console.error('Error loading manage accounts page:', error);
-    console.error('Error loading admin dashboard:', error);
-    res.status(500).send('An error occurred while loading the admin dashboard');
+    console.error('Error fetching accounts:', error);
+    res.status(500).send('An error occurred while fetching account information');
   }
 });
 
-// Route for admin to manage database backups
-app.get('/manage-backups', requireAdmin, async (req, res) => {
+// Route to edit admin account
+app.get('/account/admin/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    const isDashboard = req.query.dashboard === 'true';
+    console.log('Accessing admin account with ID:', req.params.id);
+    
+    let admin = null;
+    
+    // Try multiple methods to find the admin
     try {
-        // Optional: Add superadmin check if only superadmins can manage backups
-        if (req.session.user.role !== 'superadmin') {
-            req.flash('error', 'You are not authorized to manage backups.');
-            // Redirect to dashboard or another appropriate page if loaded in iframe
-            if (req.query.dashboard === 'true') {
-                 return res.status(403).send('Unauthorized. This content would normally redirect.'); // Or render a simple error view
+      // First try direct lookup with MongoDB driver
+      const ObjectId = require('mongodb').ObjectId;
+      if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        const adminId = new ObjectId(req.params.id);
+        admin = await db.collection('admins').findOne({ _id: adminId });
+      }
+      
+      // If not found, try as string ID
+      if (!admin) {
+        admin = await db.collection('admins').findOne({ _id: req.params.id });
+      }
+      
+      // Try by username if still not found
+      if (!admin) {
+        admin = await db.collection('admins').findOne({ username: req.params.id });
+      }
+    } catch (idError) {
+      console.error('Error looking up admin:', idError);
+    }
+    
+    if (!admin) {
+      console.error('Admin account not found with ID:', req.params.id);
+      return res.status(404).send('Admin account not found');
+    }
+    
+    // Get unique regions for the dropdown menu
+    const uniqueRegions = await Post.distinct('region');
+    
+    res.render('edit-admin', {
+      admin,
+      user: req.session.user,
+      uniqueRegions,
+      dashboard: isDashboard // Pass dashboard status
+    });
+  } catch (error) {
+    console.error('Error fetching admin account:', error);
+    res.status(500).send('An error occurred while fetching account information');
+  }
+});
+
+// Route to handle admin account updates
+app.post('/account/admin/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    // Convert string ID to ObjectId
+    const ObjectId = require('mongodb').ObjectId;
+    const adminId = new ObjectId(req.params.id);
+    
+    const { username, role, resetPassword } = req.body;
+    
+    // Prepare update data
+    const updateData = {
+      username,
+      role: role || 'admin'
+    };
+    
+    // If reset password flag is set, hash a new default password
+    if (resetPassword === 'on') {
+      const defaultPassword = 'Robolution@2023'; // Default password
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
+      updateData.password = hashedPassword;
+    }
+    
+    // Update the admin account
+    await db.collection('admins').updateOne(
+      { _id: adminId },
+      { $set: updateData }
+    );
+    
+    res.redirect('/manage-accounts');
+  } catch (error) {
+    console.error('Error updating admin account:', error);
+    res.status(500).send('An error occurred while updating the account');
+  }
+});
+
+// Route to edit regular user account
+app.get('/account/user/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    let user = null;
+    
+    // Try multiple methods to find the user
+    try {
+      // First try standard mongoose findById
+      user = await User.findById(req.params.id);
+      
+      // If not found and ID seems to be a valid MongoDB ObjectId string
+      if (!user && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        // Try with new ObjectId
+        const ObjectId = mongoose.Types.ObjectId;
+        const userId = new ObjectId(req.params.id);
+        user = await User.findOne({ _id: userId });
+      }
+      
+      // Try as string ID if still not found
+      if (!user) {
+        user = await User.findOne({ _id: req.params.id });
+      }
+      
+      // Try by username if still not found
+      if (!user) {
+        user = await User.findOne({ username: req.params.id });
+      }
+    } catch (idError) {
+      console.error('Error looking up user account:', idError);
+    }
+    
+    if (!user) {
+      console.error('User account not found with ID:', req.params.id);
+      return res.status(404).send('User account not found');
+    }
+    
+    // Get unique regions for the dropdown menu
+    const uniqueRegions = await Post.distinct('region');
+    
+    res.render('edit-user', {
+      userAccount: user,
+      currentUser: req.session.user,
+      uniqueRegions
+    });
+  } catch (error) {
+    console.error('Error fetching user account:', error);
+    res.status(500).send('An error occurred while fetching account information');
+  }
+});
+
+// Route to handle user account updates
+app.post('/account/user/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    const { username, fullName, email, resetPassword, twoFactorEnabled } = req.body;
+    
+    // Convert string ID to ObjectId safely
+    let userId;
+    try {
+      const ObjectId = mongoose.Types.ObjectId;
+      userId = new ObjectId(req.params.id);
+    } catch (idError) {
+      console.error('Failed to convert user ID to ObjectId:', idError);
+      userId = req.params.id; // Fallback to string ID
+    }
+    
+    // Prepare update data
+    const updateData = {
+      username,
+      fullName,
+      email,
+      twoFactorEnabled: twoFactorEnabled === 'on'
+    };
+    
+    // If reset password flag is set, hash a new default password
+    if (resetPassword === 'on') {
+      const defaultPassword = 'Robolution@2023'; // Default password
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
+      updateData.password = hashedPassword;
+    }
+    
+    // Find user first to ensure it exists
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      console.error(`User not found with ID ${req.params.id}`);
+      req.flash('error', 'User account not found');
+      return res.redirect('/manage-accounts');
+    }
+    
+    // Update the user account
+    await User.findByIdAndUpdate(userId, updateData);
+    
+    req.flash('success', `User account ${username} updated successfully`);
+    res.redirect('/manage-accounts');
+  } catch (error) {
+    console.error('Error updating user account:', error);
+    req.flash('error', 'An error occurred while updating the account');
+    res.redirect('/manage-accounts');
+  }
+});
+
+// Admin User Profile Management Routes
+// Route to view all user profiles with search capability
+app.get('/admin/user-profiles', requireAdmin, async (req, res) => {
+  try {
+    const isDashboard = req.query.dashboard === 'true';
+    const search = req.query.search || '';
+    let query = {};
+    if (search) {
+      query.$or = [
+        { username: { $regex: search, $options: 'i' } },
+        { fullName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { school: { $regex: search, $options: 'i' } }
+      ];
+    }
+    const users = await User.find(query).sort({ createdAt: -1 });
+    const posts = await Post.find({}); // For uniqueRegions in header/sidebar if needed
+    const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
+
+    res.render('admin-user-profiles', {
+      users,
+      search,
+      user: req.session.user,
+      uniqueRegions,
+      dashboard: isDashboard
+    });
+  } catch (error) {
+    console.error('Error fetching user profiles:', error);
+    res.status(500).send('Error fetching user profiles');
+  }
+});
+
+// Route to view specific user profile as admin
+app.get('/admin/user-profiles/:id', requireAdmin, async (req, res) => {
+  try {
+    const isDashboard = req.query.dashboard === 'true';
+    let userProfile = null;
+    // Using a more robust findById approach
+    const usersCollection = robolutionDb.collection('users');
+    const userId = req.params.id;
+
+    if (userId.match(/^[0-9a-fA-F]{24}$/)) {
+        userProfile = await usersCollection.findOne({ _id: new ObjectId(userId) });
+    } else {
+        userProfile = await usersCollection.findOne({ _id: userId });
+    }
+    if (!userProfile) {
+        userProfile = await usersCollection.findOne({ username: userId });
+    }
+
+    if (!userProfile) {
+      req.flash('error', 'User not found.');
+      return res.redirect('/admin/user-profiles' + (isDashboard ? '?dashboard=true' : ''));
+    }
+
+    let age = null;
+    if (userProfile.birthDate && userProfile.birthDate.month && userProfile.birthDate.year) {
+      const birthDate = new Date(userProfile.birthDate.year, userProfile.birthDate.month - 1);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+    }
+    const posts = await Post.find({}); // For uniqueRegions in header/sidebar if needed
+    const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
+
+    res.render('admin-view-user-profile', {
+      userProfile,
+      age,
+      profilePicture: userProfile.profilePicture || '/images/default-profile.jpg',
+      user: req.session.user,
+      uniqueRegions,
+      dashboard: isDashboard
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).send('Error fetching user profile');
+  }
+});
+
+// Route to edit user profile as admin
+app.get('/admin/user-profiles/:id/edit', requireAdmin, async (req, res) => {
+  try {
+    let userProfile = null;
+    
+    // Try multiple methods to find the user
+    try {
+      // First try standard mongoose findById
+      userProfile = await User.findById(req.params.id);
+      
+      // If not found and ID seems to be a valid MongoDB ObjectId string
+      if (!userProfile && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        // Try with new ObjectId
+        const ObjectId = mongoose.Types.ObjectId;
+        const userId = new ObjectId(req.params.id);
+        userProfile = await User.findOne({ _id: userId });
+      }
+      
+      // Try as string ID if still not found
+      if (!userProfile) {
+        userProfile = await User.findOne({ _id: req.params.id });
+      }
+      
+      // Try by username if still not found
+      if (!userProfile) {
+        userProfile = await User.findOne({ username: req.params.id });
+      }
+    } catch (idError) {
+      console.error('Error looking up user profile:', idError);
+    }
+    
+    if (!userProfile) {
+      console.error('User not found with ID:', req.params.id);
+      return res.status(404).send('User not found');
+    }
+    
+    // Get unique regions for the dropdown menu
+    const uniqueRegions = await Post.distinct('region');
+    
+    res.render('admin-edit-user-profile', {
+      userProfile,
+      user: req.session.user,
+      uniqueRegions
+    });
+  } catch (error) {
+    console.error('Error fetching user profile for edit:', error);
+    res.status(500).send('Error fetching user profile');
+  }
+});
+
+// API to update user profile as admin
+app.post('/admin/user-profiles/:id/update', requireAdmin, upload.single('profilePicture'), async (req, res) => {
+  try {
+    const { fullName, email, birthMonth, birthYear, school, address } = req.body;
+    
+    // Convert string ID to ObjectId safely
+    let userId;
+    try {
+      const ObjectId = mongoose.Types.ObjectId;
+      userId = new ObjectId(req.params.id);
+    } catch (idError) {
+      console.error('Failed to convert user ID to ObjectId:', idError);
+      userId = req.params.id; // Fallback to string ID
+    }
+    
+    // Try to find user with multiple methods
+    let userProfile = await User.findById(userId);
+    
+    // If not found and ID seems to be a valid MongoDB ObjectId string
+    if (!userProfile && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('User not found by ID, trying alternative lookup methods');
+      
+      // Try to find by string ID directly
+      userProfile = await User.findOne({ _id: req.params.id });
+    }
+    
+    if (!userProfile) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Update fields
+    if (fullName) userProfile.fullName = fullName;
+    if (email) userProfile.email = email;
+    
+    // Update birth date
+    if (birthMonth && birthYear) {
+      userProfile.birthDate = {
+        month: parseInt(birthMonth),
+        year: parseInt(birthYear)
+      };
+    }
+    
+    if (school !== undefined) userProfile.school = school;
+    if (address !== undefined) userProfile.address = address;
+    
+    // Handle profile picture upload
+    if (req.file) {
+      try {
+        const filePath = req.file.path;
+        const result = await uploadToCloudinary(filePath, 'robolution/profiles');
+        userProfile.profilePicture = result;
+      } catch (uploadError) {
+        console.error('Error uploading to Cloudinary:', uploadError);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error uploading profile picture' 
+        });
+      }
+    }
+    
+    await userProfile.save();
+    
+    // If it's an AJAX request, send JSON response
+    if (req.xhr || req.headers.accept.includes('json')) {
+      res.json({ success: true, message: 'Profile updated successfully' });
+    } else {
+      // Otherwise redirect to view profile page
+      res.redirect('/admin/user-profiles/' + req.params.id);
+    }
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    
+    // If it's an AJAX request, send JSON response
+    if (req.xhr || req.headers.accept.includes('json')) {
+      res.status(500).json({ success: false, message: 'Error updating profile' });
+    } else {
+      res.status(500).send('An error occurred while updating the profile');
+    }
+  }
+});
+
+// Route to delete admin account
+app.get('/account/admin/delete/:id', requireAdmin, async (req, res) => {
+  try {
+    // Convert string ID to ObjectId
+    const ObjectId = require('mongodb').ObjectId;
+    const adminId = new ObjectId(req.params.id);
+    
+    // Check if this is the last admin account
+    const adminCount = await db.collection('admins').countDocuments();
+    if (adminCount <= 1) {
+      return res.status(400).send('Cannot delete the last admin account');
+    }
+    
+    // Check if the admin is trying to delete their own account
+    if (req.session.user.id === req.params.id) {
+      return res.status(400).send('Cannot delete your own account while logged in');
+    }
+    
+    // Delete the admin account
+    await db.collection('admins').deleteOne({ _id: adminId });
+    
+    res.redirect('/manage-accounts');
+  } catch (error) {
+    console.error('Error deleting admin account:', error);
+    res.status(500).send('An error occurred while deleting the account');
+  }
+});
+
+// Route to delete regular user account
+app.get('/account/user/delete/:id', requireAdmin, async (req, res) => {
+  try {
+    // Convert string ID to ObjectId safely
+    let userId;
+    try {
+      const ObjectId = mongoose.Types.ObjectId;
+      userId = new ObjectId(req.params.id);
+    } catch (idError) {
+      console.error('Failed to convert user ID to ObjectId:', idError);
+      userId = req.params.id; // Fallback to string ID
+    }
+    
+    // Don't allow deleting your own account through this route
+    if (req.session.user.id === req.params.id) {
+      req.flash('error', 'You cannot delete your own account through this route.');
+      return res.redirect('/manage-accounts');
+    }
+    
+    // First find the user to ensure it exists
+    let user = await User.findById(userId);
+    
+    // If not found, try alternative lookup methods
+    if (!user && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('User not found by ID, trying alternative lookup methods');
+      
+      // Try to find by string ID directly
+      user = await User.findOne({ _id: req.params.id });
+    }
+    
+    if (!user) {
+      req.flash('error', 'User account not found.');
+      return res.redirect('/manage-accounts');
+    }
+    
+    // Use the Mongoose method directly with the found user
+    await User.deleteOne({ _id: user._id });
+    
+    req.flash('success', 'User account deleted successfully.');
+    res.redirect('/manage-accounts');
+  } catch (error) {
+    console.error('Error deleting user account:', error);
+    req.flash('error', 'An error occurred while deleting the user account.');
+    res.redirect('/manage-accounts');
+  }
+});
+
+// Route for 2FA confirmation page
+app.get('/2fa-confirmation', async (req, res) => {
+    try {
+        const { username, password } = req.query;
+        
+        if (!username || !password) {
+            return res.redirect('/login');
+        }
+        
+        // Check if username exists and password is correct
+        let user = await User.findOne({ username });
+        let isAdmin = false;
+        
+        if (!user) {
+            // Check admin collection
+            user = await db.collection('admins').findOne({ username });
+            if (user) {
+                isAdmin = true;
             }
-            return res.redirect('/admin-dashboard'); 
-        }
-
-        const isDashboard = req.query.dashboard === 'true';
-        
-        // Fetch backup data from the database_backups collection
-        let backups = [];
-        if (robolutionDb) {
-            backups = await robolutionDb.collection('database_backups')
-                                     .find({})
-                                     .sort({ timestamp: -1 }) // Sort by newest first
-                                     .toArray();
         }
         
-        const posts = await Post.find({}); // For uniqueRegions in header/sidebar if not in dashboard
-        const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
-
-        res.render('manage-backups', {
-            backups,
-            user: req.session.user,
-            uniqueRegions,
-            dashboard: isDashboard,
-            moment: require('moment') // Pass moment for date formatting in the template
+        if (!user) {
+            return res.redirect('/login');
+        }
+        
+        // Verify password
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.redirect('/login');
+        }
+        
+        // Generate a new secret for 2FA
+        const secret = speakeasy.generateSecret({
+            length: 20,
+            name: `Robolution:${username}`
+        });
+        
+        // Generate QR code
+        const otpauthUrl = speakeasy.otpauthURL({
+            secret: secret.base32,
+            label: `Robolution:${username}`,
+            issuer: 'Robolution',
+            encoding: 'base32'
+        });
+        
+        const qrCodeUrl = await qrcode.toDataURL(otpauthUrl);
+        
+        // Generate backup codes
+        const backupCodes = Array(8).fill().map(() => 
+            Math.random().toString(36).substring(2, 8).toUpperCase()
+        );
+        
+        // Render the confirmation page
+        res.render('UserViews/2fa-confirmation', {
+            username,
+            password,
+            qrCodeUrl,
+            secret: secret.base32,
+            backupCodes
         });
     } catch (error) {
-        console.error('Error loading manage backups page:', error);
-        res.status(500).send('An error occurred while loading the backups page.');
+        console.error('Error in 2FA confirmation page:', error);
+        res.redirect('/login');
     }
 });
+
+// Route to verify and enable 2FA during login
+app.post('/verify-login-2fa', async (req, res) => {
+    try {
+        const { username, password, token, secret } = req.body;
+        
+        if (!username || !password || !token || !secret) {
+            return res.redirect('/login');
+        }
+        
+        // Verify the token against the secret
+        const verified = speakeasy.totp.verify({
+            secret: secret,
+            encoding: 'base32',
+            token: token,
+            window: 1
+        });
+        
+        if (!verified) {
+            return res.render('UserViews/2fa-confirmation', {
+                username,
+                password,
+                qrCodeUrl: await qrcode.toDataURL(speakeasy.otpauthURL({
+                    secret: secret,
+                    label: `Robolution:${username}`,
+                    issuer: 'Robolution',
+                    encoding: 'base32'
+                })),
+                secret,
+                error: 'Invalid verification code. Please try again.'
+            });
+        }
+        
+        // Generate backup codes
+        const backupCodes = Array(8).fill().map(() => 
+            Math.random().toString(36).substring(2, 8).toUpperCase()
+        );
+        
+        // Save the 2FA secret and enable 2FA
+        let user = await User.findOne({ username });
+        let isAdmin = false;
+        
+        if (user) {
+            // Update user
+            user.twoFactorSecret = secret;
+            user.twoFactorEnabled = true;
+            user.backupCodes = backupCodes;
+            user.needs2FASetup = false; // Clear the flag
+            await user.save();
+        } else {
+            // Check admin collection
+            const adminUser = await db.collection('admins').findOne({ username });
+            if (adminUser) {
+                // Update admin
+                await db.collection('admins').updateOne(
+                    { username },
+                    { 
+                        $set: {
+                            twoFactorSecret: secret,
+                            twoFactorEnabled: true,
+                            backupCodes,
+                            needs2FASetup: false // Clear the flag
+                        }
+                    }
+                );
+                isAdmin = true;
+            } else {
+                return res.redirect('/login');
+            }
+        }
+        
+        // Log the user in automatically
+        if (isAdmin) {
+            req.session.user = {
+                id: user._id.toString(),
+                username: user.username,
+                isAdmin: true,
+                role: user.role || 'admin'
+            };
+        } else {
+            req.session.user = {
+                id: user._id.toString(),
+                username: user.username,
+                isAdmin: false,
+                role: 'user'
+            };
+        }
+        
+        // Save session
+        await new Promise((resolve, reject) => {
+            req.session.save((err) => {
+                if (err) {
+                    console.error('Session save error:', err);
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        });
+        
+        // Render success page
+        res.render('UserViews/2fa-success', {
+            message: 'Two-factor authentication has been successfully set up!',
+            backupCodes,
+            redirectUrl: isAdmin ? '/index' : '/user-landing'
+        });
+    } catch (error) {
+        console.error('Error verifying 2FA during login:', error);
+        res.redirect('/login');
+    }
+});
+
+// User profile routes
+// Route to view user profile
+app.get('/profile', requireLogin, async (req, res) => { // Added requireLogin
+  // Check if user is logged in -- REMOVED MANUAL CHECK
+  // if (!req.session || !req.session.user || !req.session.user.id) {
+  //   console.log('No valid session for profile access:', { 
+  //     hasSession: !!req.session,
+  //     hasUser: req.session ? !!req.session.user : false,
+  //     userId: req.session && req.session.user ? req.session.user.id : null
+  //   });
+    
+  //   // Add redirect parameter so user can return to profile page after logging in
+  //   return res.redirect('/login?redirect=/profile');
+  // }
+  
+  try {
+    console.log('Attempting to find user with ID:', req.session.user.id);
+    
+    let user = null;
+    
+    // Try multiple lookup methods for user
+    try {
+      // First try standard mongoose findById
+      user = await User.findById(req.session.user.id);
+      
+      // If not found and ID seems to be a valid MongoDB ObjectId string
+      if (!user && req.session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+        // Try with new ObjectId
+        const ObjectId = mongoose.Types.ObjectId;
+        try {
+          const userId = new ObjectId(req.session.user.id);
+          user = await User.findOne({ _id: userId });
+        } catch (objIdError) {
+          console.error('Error converting user ID to ObjectId:', objIdError);
+        }
+      }
+      
+      // Try as string ID if still not found
+      if (!user) {
+        user = await User.findOne({ _id: req.session.user.id });
+      }
+      
+      // Try by username if still not found
+      if (!user && req.session.user.username) {
+        console.log('Trying to find user by username:', req.session.user.username);
+        user = await User.findOne({ username: req.session.user.username });
+      }
+    } catch (idError) {
+      console.error('Error looking up user:', idError);
+    }
+    
+    if (!user) {
+      // User not found in database - likely due to database restore
+      console.log('User not found in database but has session:', req.session.user);
+      
+      // Render an error page instead of redirecting to login
+      return res.render('UserViews/user-error', {
+        error: 'Account Not Found',
+        message: 'Your user account could not be found in the database. This may be due to a recent database restore operation. Please sign up for a new account.',
+        actionText: 'Sign Up',
+        actionLink: '/signup',
+        showLogoutButton: true
+      });
+    }
+    
+    // Calculate age from birth date if available
+    let age = null;
+    if (user.birthDate && user.birthDate.month && user.birthDate.year) {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+      const currentYear = currentDate.getFullYear();
+      
+      age = currentYear - user.birthDate.year;
+      
+      // If birth month is after current month, subtract 1 from age
+      if (user.birthDate.month > currentMonth) {
+        age--;
+      }
+    }
+    
+    // Get user's registrations with flexible ObjectId handling
+    let registrations = [];
+    try {
+      // Try with ObjectId
+      if (user._id) {
+        if (typeof user._id === 'string' && user._id.match(/^[0-9a-fA-F]{24}$/)) {
+          const ObjectId = mongoose.Types.ObjectId;
+          try {
+            const userId = new ObjectId(user._id);
+            registrations = await Registration.find({ userId: userId }).sort({ registeredAt: -1 });
+          } catch (err) {
+            console.error('Error converting user._id to ObjectId:', err);
+          }
+        } else {
+          // Direct query with user._id object
+          registrations = await Registration.find({ userId: user._id }).sort({ registeredAt: -1 });
+        }
+        
+        // If no registrations found, try with string ID
+        if (registrations.length === 0) {
+          registrations = await Registration.find({ userId: user._id.toString() }).sort({ registeredAt: -1 });
+        }
+      }
+    } catch (regError) {
+      console.error('Error fetching registrations:', regError);
+    }
+    
+    // Render the profile page with all necessary data
+    res.render('UserViews/profile', { 
+      user,
+      age,
+      registrations,
+      profilePicture: user.profilePicture || '/images/default-profile.jpg'
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).send('Error fetching user profile');
+  }
+});
+
+// Route to update user profile
+app.post('/profile/update', upload.single('profilePicture'), async (req, res) => {
+  // Check if user is logged in
+  if (!req.session.user) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+  
+  try {
+    const { birthMonth, birthYear, school, address } = req.body;
+    
+    // Explicitly convert string ID to ObjectID if it's not already
+    let userId;
+    try {
+      const ObjectId = mongoose.Types.ObjectId;
+      userId = new ObjectId(req.session.user.id);
+    } catch (idError) {
+      console.error('Failed to convert ID to ObjectId:', idError);
+      userId = req.session.user.id; // Fallback to string ID
+    }
+    
+    // Find user - try multiple query methods
+    let user = null;
+    
+    // First try with converted ObjectID (most reliable)
+    user = await User.findById(userId);
+    
+    // If not found, try a direct query by username if available
+    if (!user && req.session.user.username) {
+      console.log('User not found by ID, trying by username:', req.session.user.username);
+      user = await User.findOne({ username: req.session.user.username });
+    }
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Update profile data
+    if (birthMonth && birthYear) {
+      user.birthDate = {
+        month: parseInt(birthMonth),
+        year: parseInt(birthYear)
+      };
+    }
+    
+    if (school) user.school = school;
+    if (address) user.address = address;
+    
+    // Handle profile picture upload
+    if (req.file) {
+      try {
+        const filePath = req.file.path;
+        console.log('Uploading profile picture:', filePath);
+        const result = await uploadToCloudinary(filePath, 'robolution/profiles');
+        console.log('Cloudinary upload successful:', result);
+        user.profilePicture = result;
+      } catch (uploadError) {
+        console.error('Error uploading to Cloudinary:', uploadError);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error uploading profile picture' 
+        });
+      }
+    }
+    
+    await user.save();
+    res.json({ success: true, message: 'Profile updated successfully' });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ success: false, message: 'Error updating profile' });
+  }
+});
+
+// Route to check username availability for users
+app.get('/api/check-username', async (req, res) => {
+    try {
+        const username = req.query.username;
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required' });
+        }
+
+        const existingUser = await User.findOne({ username: username });
+        res.json({ available: !existingUser });
+    } catch (error) {
+        console.error('Error checking username:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Route to deny a registration
+app.post('/registration/deny', async (req, res) => {
+  try {
+    const { registrationId, deniedReason, deniedMessage } = req.body;
+    
+    // Validate the required fields
+    if (!registrationId || !deniedReason) {
+      return res.status(400).send('Missing required fields');
+    }
+    
+    // Update the registration
+    await Registration.findByIdAndUpdate(registrationId, {
+      denied: true,
+      deniedReason,
+      deniedMessage,
+      deniedBy: req.session.user.username,
+      deniedAt: new Date(),
+      verified: false // Reset verified status
+    });
+    
+    res.redirect('/manage-registrations?verified=denied');
+  } catch (error) {
+    console.error('Error denying registration:', error);
+    res.status(500).send('An error occurred while denying the registration');
+  }
+});
+
+// API route to update registration status
+app.post('/registration/update-status/:id', async (req, res) => {
+  try {
+    const { denied } = req.body;
+    const registrationId = req.params.id;
+    
+    // Validate registration ID
+    if (!registrationId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Registration ID is required' 
+      });
+    }
+    
+    // Find the registration
+    const registration = await Registration.findById(registrationId);
+    
+    if (!registration) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Registration not found' 
+      });
+    }
+    
+    // Update the registration based on the denied flag
+    if (denied) {
+      // This branch is for setting a registration to denied again
+      await Registration.findByIdAndUpdate(registrationId, {
+        denied: true
+      });
+    } else {
+      // This branch is for changing from denied to unverified
+      await Registration.findByIdAndUpdate(registrationId, {
+        denied: false,
+        deniedReason: null,
+        deniedMessage: null,
+        deniedBy: null,
+        deniedAt: null
+      });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating registration status:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'An error occurred while updating the registration status' 
+    });
+  }
+});
+
+// Admin password reset route
+app.get('/account/admin/reset-password/:id', requireAdmin, async (req, res) => {
+  try {
+    const adminId = req.params.id;
+    
+    // Find the admin account
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      req.flash('error', 'Admin account not found.');
+      return res.redirect('/manage-accounts');
+    }
+    
+    // Generate a temporary password (alphanumeric, 10 characters)
+    const tempPassword = Math.random().toString(36).substring(2, 12);
+    
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    
+    // Update the admin's password and require 2FA setup on next login
+    admin.password = hashedPassword;
+    admin.twoFactorEnabled = false; // Disable 2FA
+    admin.needs2FASetup = true; // Flag that user needs to set up 2FA on next login
+    await admin.save();
+    
+    req.flash('success', `Password for ${admin.username} has been reset. Temporary password: ${tempPassword}`);
+    res.redirect('/manage-accounts');
+  } catch (error) {
+    console.error('Error resetting admin password:', error);
+    req.flash('error', 'An error occurred while resetting the admin password.');
+    res.redirect('/manage-accounts');
+  }
+});
+
+// User password reset route
+app.get('/account/user/reset-password/:id', requireAdmin, async (req, res) => {
+  try {
+    // Convert string ID to ObjectId safely
+    let userId;
+    try {
+      const ObjectId = mongoose.Types.ObjectId;
+      userId = new ObjectId(req.params.id);
+    } catch (idError) {
+      console.error('Failed to convert user ID to ObjectId:', idError);
+      userId = req.params.id; // Fallback to string ID
+    }
+    
+    // Find the user account - try multiple methods
+    let user = await User.findById(userId);
+    
+    // If not found and ID seems to be a valid MongoDB ObjectId string
+    if (!user && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('User not found by ID, trying alternative lookup methods');
+      
+      // Try to find by string ID directly
+      user = await User.findOne({ _id: req.params.id });
+    }
+    
+    if (!user) {
+      req.flash('error', 'User account not found.');
+      return res.redirect('/manage-accounts');
+    }
+    
+    // Generate a temporary password (alphanumeric, 10 characters)
+    const tempPassword = Math.random().toString(36).substring(2, 12);
+    
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    
+    // Update the user's password and require 2FA setup on next login
+    user.password = hashedPassword;
+    user.twoFactorEnabled = false; // Disable 2FA
+    user.needs2FASetup = true; // Flag that user needs to set up 2FA on next login
+    await user.save();
+    
+    req.flash('success', `Password for ${user.username} has been reset. Temporary password: ${tempPassword}`);
+    res.redirect('/manage-accounts');
+  } catch (error) {
+    console.error('Error resetting user password:', error);
+    req.flash('error', 'An error occurred while resetting the user password.');
+    res.redirect('/manage-accounts');
+  }
+});
+
+// User password change route
+app.post('/account/user/change-password/:id', requireAdmin, async (req, res) => {
+  try {
+    // Convert string ID to ObjectId safely
+    let userId;
+    try {
+      const ObjectId = mongoose.Types.ObjectId;
+      userId = new ObjectId(req.params.id);
+    } catch (idError) {
+      console.error('Failed to convert user ID to ObjectId:', idError);
+      userId = req.params.id; // Fallback to string ID
+    }
+    
+    const { password, confirmPassword } = req.body;
+    
+    // Validate passwords
+    if (!password || !confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Both password fields are required.' });
+    }
+    
+    if (password !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match.' });
+    }
+    
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long.' });
+    }
+    
+    // Find the user account - try multiple methods
+    let user = await User.findById(userId);
+    
+    // If not found and ID seems to be a valid MongoDB ObjectId string
+    if (!user && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('User not found by ID, trying alternative lookup methods');
+      
+      // Try to find by string ID directly
+      user = await User.findOne({ _id: req.params.id });
+    }
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User account not found.' });
+    }
+    
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Update the user's password but maintain 2FA status
+    user.password = hashedPassword;
+    await user.save();
+    
+    res.json({ success: true, message: `Password for ${user.username} has been changed successfully.` });
+  } catch (error) {
+    console.error('Error changing user password:', error);
+    res.status(500).json({ success: false, message: 'An error occurred while changing the password.' });
+  }
+});
+
+// Database backup management route
+app.get('/manage-backups', requireAdmin, async (req, res) => {
+  try {
+    const isDashboard = req.query.dashboard === 'true';
+    // Optional: Add superadmin check if only superadmins can manage backups
+    if (req.session.user.role !== 'superadmin') {
+        req.flash('error', 'You are not authorized to manage backups.');
+        // Redirect to dashboard or another appropriate page if loaded in iframe
+        if (isDashboard) {
+             return res.status(403).send('Unauthorized. This content would normally redirect.'); // Or render a simple error view
+        }
+        return res.redirect('/admin-dashboard'); 
+    }
+
+    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    const db = client.db('robolution');
+    const backups = await db.collection('database_backups')
+      .find({})
+      .sort({ timestamp: -1 })
+      .toArray()
+      .then(backups => backups.map(backup => ({
+        name: backup.backupId,
+        timestamp: backup.timestamp,
+        size: backup.size ? (backup.size / (1024 * 1024)).toFixed(2) + ' MB' : '0.05 MB',
+        files: backup.files || [],
+        metadataUrl: backup.metadataUrl,
+        _id: backup._id
+      })));
+    
+    const posts = await Post.find({}); // For uniqueRegions in header/sidebar if needed
+    const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
+
+    res.render('manage-backups', {
+      title: 'Manage Database Backups | Robolution Admin',
+      user: req.session.user,
+      backups: backups,
+      moment: moment, // Pass moment for date formatting
+      uniqueRegions,
+      dashboard: isDashboard,
+      success: req.flash ? req.flash('success') : [],
+      error: req.flash ? req.flash('error') : []
+    });
+    await client.close();
+  } catch (error) {
+    console.error('Error accessing backups page:', error);
+    req.flash('error', 'An error occurred while accessing database backups.');
+    if (isDashboard) {
+        return res.status(500).send('Error loading backup information.');
+    }
+    res.redirect('/admin-dashboard'); // Or appropriate error page
+  }
+});
+
+// Trigger a manual backup
+app.post('/trigger-backup', requireAdmin, async (req, res) => {
+  try {
+    const backupsDir = path.join(__dirname, 'database_backups');
+    
+    // Create backups directory if it doesn't exist
+    if (!fs.existsSync(backupsDir)) {
+      fs.mkdirSync(backupsDir, { recursive: true });
+    }
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupId = `backup-${timestamp}`;
+    const backupPath = path.join(backupsDir, backupId);
+    
+    // Create timestamp directory
+    if (!fs.existsSync(backupPath)) {
+      fs.mkdirSync(backupPath, { recursive: true });
+    }
+    
+    // Get a client to the MongoDB database
+    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    const dbName = 'robolution'; // Your database name
+    const db = client.db(dbName);
+    
+    // Get all collections in the database
+    const collections = await db.listCollections().toArray();
+    
+    // Store information about all files uploaded
+    const uploadedFiles = [];
+    
+    // For each collection, export all documents to a JSON file and upload to Cloudinary
+    for (const collection of collections) {
+      const collectionName = collection.name;
+      const documents = await db.collection(collectionName).find({}).toArray();
+      
+      // Save documents to a JSON file temporarily
+      const collectionFile = path.join(backupPath, `${collectionName}.json`);
+      fs.writeFileSync(collectionFile, JSON.stringify(documents, null, 2));
+      
+      // Upload the JSON file to Cloudinary
+      const cloudinaryResult = await uploadToCloudinary(collectionFile, `robolution/backups/${backupId}`);
+      uploadedFiles.push({
+        collection: collectionName,
+        url: cloudinaryResult,
+        documentCount: documents.length
+      });
+    }
+    
+    // Write metadata about the backup
+    const metadata = {
+      timestamp: timestamp,
+      date: new Date().toString(),
+      databaseName: dbName,
+      collections: collections.map(c => c.name),
+      backupType: 'cloudinary_export',
+      files: uploadedFiles,
+      triggeredBy: req.session.user.username
+    };
+    
+    // Save metadata file
+    const metadataFile = path.join(backupPath, 'backup-metadata.json');
+    fs.writeFileSync(metadataFile, JSON.stringify(metadata, null, 2));
+    
+    // Upload metadata file to Cloudinary
+    const metadataUrl = await uploadToCloudinary(metadataFile, `robolution/backups/${backupId}`);
+    
+    // Save backup record to the database
+    await db.collection('database_backups').insertOne({
+      backupId,
+      timestamp: new Date(),
+      metadataUrl,
+      files: uploadedFiles,
+      size: uploadedFiles.reduce((acc, file) => acc + (file.size || 0), 0)
+    });
+    
+    // Clean up temporary files
+    try {
+      fs.rm(backupPath, { recursive: true, force: true }, (err) => {
+        if (err) {
+          console.error(`Error cleaning up temporary backup files: ${err.message}`);
+        } else {
+          console.log(`Cleaned up temporary backup directory: ${backupPath}`);
+        }
+      });
+    } catch (cleanupError) {
+      console.error(`Error during backup cleanup: ${cleanupError.message}`);
+    }
+    
+    // Close the client
+    await client.close();
+    
+    req.flash('success', 'Database backup created successfully.');
+    res.redirect('/manage-backups');
+  } catch (error) {
+    console.error('Error triggering backup:', error);
+    req.flash('error', 'An error occurred while triggering the backup.');
+    res.redirect('/manage-backups');
+  }
+});
+
+// Delete a backup
+app.get('/delete-backup/:name', requireAdmin, async (req, res) => {
+  try {
+    const backupId = req.params.name;
+    if (!backupId || !backupId.startsWith('backup-')) {
+      req.flash('error', 'Invalid backup name.');
+      return res.redirect('/manage-backups');
+    }
+    
+    // Connect to the database
+    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    const db = client.db('robolution');
+    
+    // Find the backup record
+    const backup = await db.collection('database_backups').findOne({ backupId });
+    
+    if (!backup) {
+      req.flash('error', 'Backup not found.');
+      await client.close();
+      return res.redirect('/manage-backups');
+    }
+    
+    // Delete each file from Cloudinary
+    if (backup.files && backup.files.length > 0) {
+      for (const file of backup.files) {
+        if (file.url) {
+          try {
+            // Extract public_id from Cloudinary URL
+            const urlParts = file.url.split('/');
+            const publicId = `robolution/backups/${backupId}/${urlParts[urlParts.length - 1].split('.')[0]}`;
+            
+            // Delete from Cloudinary
+            await cloudinary.uploader.destroy(publicId);
+            console.log(`Deleted Cloudinary file: ${publicId}`);
+          } catch (err) {
+            console.error(`Error deleting Cloudinary file: ${err.message}`);
+          }
+        }
+      }
+    }
+    
+    // Delete metadata from Cloudinary if it exists
+    if (backup.metadataUrl) {
+      try {
+        const urlParts = backup.metadataUrl.split('/');
+        const publicId = `robolution/backups/${backupId}/${urlParts[urlParts.length - 1].split('.')[0]}`;
+        
+        await cloudinary.uploader.destroy(publicId);
+        console.log(`Deleted Cloudinary metadata file: ${publicId}`);
+      } catch (err) {
+        console.error(`Error deleting Cloudinary metadata file: ${err.message}`);
+      }
+    }
+    
+    // Delete the backup record from the database
+    await db.collection('database_backups').deleteOne({ _id: backup._id });
+    
+    await client.close();
+    req.flash('success', 'Backup deleted successfully.');
+    res.redirect('/manage-backups');
+  } catch (error) {
+    console.error('Error deleting backup:', error);
+    req.flash('error', 'An error occurred while deleting the backup.');
+    res.redirect('/manage-backups');
+  }
+});
+
+// Restore from a backup
+app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
+  try {
+    const backupId = req.params.name;
+    if (!backupId || !backupId.startsWith('backup-')) {
+      req.flash('error', 'Invalid backup name.');
+      return res.redirect('/manage-backups');
+    }
+    
+    // Create temp directory for restoration
+    const restorePath = path.join(__dirname, 'database_backups', 'restore_temp');
+    if (!fs.existsSync(restorePath)) {
+      fs.mkdirSync(restorePath, { recursive: true });
+    }
+    
+    // Connect to the database to find the backup record
+    const client = await MongoClient.connect(process.env.MONGODB_URI);
+    const db = client.db('robolution');
+    
+    // Find the backup record
+    const backup = await db.collection('database_backups').findOne({ backupId });
+    
+    if (!backup) {
+      req.flash('error', 'Backup not found.');
+      await client.close();
+      return res.redirect('/manage-backups');
+    }
+    
+    console.log(`Starting database restoration from backup: ${backupId}`);
+    
+    // Download all backup files from Cloudinary to temp directory
+    if (!backup.files || backup.files.length === 0) {
+      req.flash('error', 'Backup files information is missing.');
+      await client.close();
+      return res.redirect('/manage-backups');
+    }
+
+    // First, backup current users collection to preserve active user accounts
+    console.log('Backing up current user accounts before restoration...');
+    const currentUsers = await db.collection('users').find({}).toArray();
+    const currentAdmins = await db.collection('admins').find({}).toArray();
+    
+    // Store current session user for special handling
+    const currentAdminUser = req.session.user;
+    
+    // Create maps of existing users and admins by username for quick lookup
+    const existingUsersMap = {};
+    currentUsers.forEach(user => {
+      if (user.username) {
+        existingUsersMap[user.username] = user;
+      }
+    });
+    
+    const existingAdminsMap = {};
+    currentAdmins.forEach(admin => {
+      if (admin.username) {
+        existingAdminsMap[admin.username] = admin;
+      }
+    });
+    
+    console.log(`Preserved ${Object.keys(existingUsersMap).length} existing user accounts and ${Object.keys(existingAdminsMap).length} admin accounts`);
+    
+    // Helper function to convert string IDs to ObjectIds consistently
+    const processDocument = (doc) => {
+      if (doc === null || typeof doc !== 'object') {
+        return doc;
+      }
+
+      const newDoc = Array.isArray(doc) ? [] : {};
+
+      for (const key in doc) {
+        if (Object.prototype.hasOwnProperty.call(doc, key)) {
+          const value = doc[key];
+
+          if (typeof value === 'string' && /^[0-9a-fA-F]{24}$/.test(value)) {
+            try {
+              newDoc[key] = new ObjectId(value);
+            } catch (e) {
+              console.log(`Could not convert field ${key} value ${value} to ObjectId: ${e.message}`);
+              newDoc[key] = value; // Keep original if conversion fails
+            }
+          } else if (value && typeof value === 'object' && value.$date && typeof value.$date === 'string') {
+            newDoc[key] = new Date(value.$date);
+          } else if (value && typeof value === 'object') {
+            newDoc[key] = processDocument(value); // Recurse for nested objects/arrays
+          } else {
+            newDoc[key] = value;
+          }
+        }
+      }
+      return newDoc;
+    };
+    
+    // Download and process each collection file
+    for (const file of backup.files) {
+      if (!file.url || !file.collection) {
+        console.log(`[Restore] Skipping file with missing information: ${JSON.stringify(file)}`);
+        continue;
+      }
+      
+      console.log(`[Restore] Processing file: ${file.collection} from ${file.url}`); // Added log
+
+      try {
+        // Download file from Cloudinary
+        const response = await axios.get(file.url, { responseType: 'text' });
+        const data = await response.data;
+        const collectionData = JSON.parse(data);
+        const collectionName = file.collection;
+        
+        console.log(`[Restore] Restoring collection: ${collectionName} with ${collectionData.length} documents`);
+        
+        // Special handling for users and admins collections to preserve current users
+        if (collectionName === 'users') {
+          console.log('[Restore] Merging users with preserved accounts...');
+          
+          // Process documents to convert string IDs to ObjectIds where needed
+          const processedData = collectionData.map(doc => { // Added logging for posts
+            const processed = processDocument(doc);
+            if (collectionName === 'posts' && processed.imageUrl) {
+              console.log(`[Restore Post Detail] Original imageUrl from backup for post "${processed.title}": ${doc.imageUrl}`);
+              console.log(`[Restore Post Detail] Processed imageUrl for post "${processed.title}": ${processed.imageUrl}`);
+            }
+            return processed;
+          });
+          
+          // Drop the existing collection
+          try {
+            await db.collection(collectionName).drop();
+            console.log(`[Restore] Dropped existing collection: ${collectionName}`);
+          } catch (dropError) {
+            // Collection might not exist, which is okay
+            console.log(`[Restore] Collection ${collectionName} might not exist, continuing`);
+          }
+          
+          // Merge backup users with current users (current users take precedence)
+          const mergedUsers = [];
+          
+          // First add all backup users that don't exist in current system
+          processedData.forEach(backupUser => {
+            if (!backupUser.username || !existingUsersMap[backupUser.username]) {
+              mergedUsers.push(backupUser);
+            }
+          });
+          
+          // Then add all current users
+          Object.values(existingUsersMap).forEach(currentUser => {
+            mergedUsers.push(processDocument(currentUser));
+          });
+          
+          // Insert the merged users
+          if (mergedUsers.length > 0) {
+            await db.collection(collectionName).insertMany(mergedUsers);
+            console.log(`[Restore] Restored ${mergedUsers.length} users with ${Object.keys(existingUsersMap).length} preserved accounts`);
+          }
+        } 
+        // Special handling for admins collection
+        else if (collectionName === 'admins') {
+          console.log('[Restore] Merging admins with preserved accounts...');
+          
+          // Process documents to convert string IDs to ObjectIds where needed
+          const processedData = collectionData.map(doc => { // Added logging for posts
+            const processed = processDocument(doc);
+            if (collectionName === 'posts' && processed.imageUrl) {
+              console.log(`[Restore Post Detail] Original imageUrl from backup for post "${processed.title}": ${doc.imageUrl}`);
+              console.log(`[Restore Post Detail] Processed imageUrl for post "${processed.title}": ${processed.imageUrl}`);
+            }
+            return processed;
+          });
+          
+          // Drop the existing collection
+          try {
+            await db.collection(collectionName).drop();
+            console.log(`[Restore] Dropped existing collection: ${collectionName}`);
+          } catch (dropError) {
+            // Collection might not exist, which is okay
+            console.log(`[Restore] Collection ${collectionName} might not exist, continuing`);
+          }
+          
+          // Merge backup admins with current admins (current admins take precedence)
+          const mergedAdmins = [];
+          
+          // First add all backup admins that don't exist in current system
+          processedData.forEach(backupAdmin => {
+            if (!backupAdmin.username || !existingAdminsMap[backupAdmin.username]) {
+              mergedAdmins.push(backupAdmin);
+            }
+          });
+          
+          // Then add all current admins
+          Object.values(existingAdminsMap).forEach(currentAdmin => {
+            mergedAdmins.push(processDocument(currentAdmin));
+          });
+          
+          // Insert the merged admins
+          if (mergedAdmins.length > 0) {
+            await db.collection(collectionName).insertMany(mergedAdmins);
+            console.log(`[Restore] Restored ${mergedAdmins.length} admins with ${Object.keys(existingAdminsMap).length} preserved accounts`);
+          }
+        }
+        else {
+          // Regular handling for other collections
+          console.log(`[Restore] Performing regular restore for collection: ${collectionName}`); // Added log
+          
+          // Drop the existing collection to ensure clean restore
+          try {
+            await db.collection(collectionName).drop();
+            console.log(`[Restore] Dropped existing collection: ${collectionName}`);
+          } catch (dropError) {
+            console.log(`[Restore] Collection ${collectionName} might not exist or drop failed (which can be OK): ${dropError.message}`);
+          }
+          
+          // Process documents with consistent ObjectID handling
+          const processedData = collectionData.map(doc => {
+            const processed = processDocument(doc);
+            if (collectionName === 'posts' && doc.imageUrl) { // Check original doc for imageUrl
+              console.log(`[Restore Post Detail] Original imageUrl from backup for post "${doc.title}": ${doc.imageUrl}`);
+              console.log(`[Restore Post Detail] Processed imageUrl for post "${processed.title}": ${processed.imageUrl}`);
+            }
+            return processed;
+          });
+          
+          // Insert the backup data
+          if (processedData.length > 0) {
+            console.log(`[Restore] Attempting to insert ${processedData.length} documents into ${collectionName}. First doc: ${JSON.stringify(processedData[0])}`); // Added log
+            await db.collection(collectionName).insertMany(processedData);
+            console.log(`[Restore] Restored ${processedData.length} documents to ${collectionName}`);
+          } else {
+            console.log(`[Restore] No documents to insert for ${collectionName}.`); // Added log
+          }
+        }
+      } catch (fileError) {
+        console.error(`[Restore] Error processing file ${file.collection}:`, fileError.message); // Log error message
+        console.error(`[Restore] Full error object for ${file.collection}:`, fileError); // Log full error object
+      }
+    }
+    
+    // Clean up temp directory
+    try {
+      fs.rm(restorePath, { recursive: true, force: true }, (err) => {
+        if (err) {
+          console.error(`Error cleaning up temp restore directory: ${err.message}`);
+        } else {
+          console.log(`Cleaned up temp restore directory`);
+        }
+      });
+    } catch (cleanupError) {
+      console.error(`Error during restore cleanup: ${cleanupError.message}`);
+    }
+    
+    // Refresh Mongoose connection to ensure it's using updated database
+    try {
+      console.log('Refreshing Mongoose connection after restore...');
+      await mongoose.disconnect();
+      await mongoose.connect(process.env.MONGODB_URI, { dbName: 'robolution' });
+      console.log('Mongoose connection refreshed');
+    } catch (reconnectError) {
+      console.error('Error refreshing Mongoose connection:', reconnectError);
+    }
+    
+    // Restore session for current admin user
+    if (currentAdminUser) {
+      req.session.user = currentAdminUser;
+      await new Promise((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error('Error saving session after restore:', err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+      console.log('Admin session preserved after restore');
+    }
+    
+    // Close the client
+    await client.close();
+    
+    // Add a message about potentially affected user sessions
+    req.flash('success', `Database successfully restored from backup: ${backupId}. Active user sessions may need to log in again.`);
+    res.redirect('/manage-backups');
+  } catch (error) {
+    console.error('Error restoring backup:', error);
+    req.flash('error', `Error during database restoration: ${error.message}`);
+    res.redirect('/manage-backups');
+  }
+});
+
+// Helper function to get directory size
+function getDirSize(dirPath) {
+  let size = 0;
+  
+  try {
+    const files = fs.readdirSync(dirPath);
+    
+    for (const file of files) {
+      const filePath = path.join(dirPath, file);
+      const stats = fs.statSync(filePath);
+      
+      if (stats.isDirectory()) {
+        size += getDirSize(filePath);
+      } else {
+        size += stats.size;
+      }
+    }
+  } catch (error) {
+    console.error(`Error calculating directory size: ${error.message}`);
+  }
+  
+  // Convert to MB with 2 decimal places
+  return (size / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+// Route to handle user password changes from profile page
+app.post('/profile/change-password', async (req, res) => {
+  // Check if user is logged in
+  if (!req.session.user) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+  
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    
+    // Validate input
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'New passwords do not match' });
+    }
+    
+    // Find user
+    const user = await User.findById(req.session.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+    
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Update password
+    user.password = hashedPassword;
+    await user.save();
+    
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ success: false, message: 'An error occurred while changing password' });
+  }
+});
+
+// Add this helper function near the top of the file, after the imports but before the routes
+// Flexible ID lookup helper function for MongoDB
+async function findDocumentById(collection, id, options = {}) {
+  try {
+    const { alternativeFields = [] } = options;
+    const ObjectId = require('mongodb').ObjectId;
+    
+    // Array to store query conditions
+    const queryConditions = [];
+    
+    // Try as ObjectId
+    if (typeof id === 'string' && id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const objId = new ObjectId(id);
+        queryConditions.push({ _id: objId });
+      } catch (err) {
+        console.log(`Could not convert ${id} to ObjectId:`, err.message);
+      }
+    }
+    
+    // Try as plain string ID
+    if (typeof id === 'string') {
+      queryConditions.push({ _id: id });
+    }
+    
+    // Add any alternative field lookups
+    for (const field of alternativeFields) {
+      if (field && id) {
+        queryConditions.push({ [field]: id });
+      }
+    }
+    
+    // If we have any query conditions, search for the document
+    if (queryConditions.length > 0) {
+      const query = queryConditions.length === 1 
+        ? queryConditions[0] 
+        : { $or: queryConditions };
+      
+      console.log('Searching with query:', JSON.stringify(query));
+      return await collection.findOne(query);
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error in findDocumentById:', error);
+    return null;
+  }
+}
+
+// Add this right after the mongoose connection setup but before setting up routes
+// -------- Add database connection monitoring and recovery --------
+
+// Track connection state
+let isMongooseConnected = false;
+let connectionCheckInterval;
+
+// Monitor mongoose connection
+mongoose.connection.on('connected', () => {
+  console.log('Mongoose connection established');
+  isMongooseConnected = true;
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('Mongoose disconnected');
+  isMongooseConnected = false;
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('Mongoose connection error:', err);
+  isMongooseConnected = false;
+});
+
+// Function to check and reconnect Mongoose if needed
+const checkAndReconnectMongoose = async () => {
+  if (!isMongooseConnected) {
+    try {
+      console.log('Attempting to reconnect Mongoose...');
+      await mongoose.disconnect(); // Ensure clean disconnect first
+      await mongoose.connect(uri, { dbName: 'robolution' });
+      console.log('Mongoose reconnection successful');
+    } catch (error) {
+      console.error('Mongoose reconnection failed:', error);
+    }
+  }
+};
+
+// Start connection monitoring
+connectionCheckInterval = setInterval(checkAndReconnectMongoose, 30000); // Check every 30 seconds
+
+// Enhance the findDocumentById function for more robust lookups
+async function findDocumentById(collection, id, options = {}) {
+  try {
+    const { alternativeFields = [], modelType = null } = options;
+    const ObjectId = require('mongodb').ObjectId;
+    
+    console.log(`Attempting to find document in ${collection.collectionName || 'collection'} with ID: ${id}`);
+    
+    // If we were passed a mongoose model instead of a collection
+    if (modelType) {
+      // Try direct mongoose findById first (most reliable if ID format matches)
+      try {
+        const doc = await modelType.findById(id);
+        if (doc) {
+          console.log(`Found document using mongoose findById`);
+          return doc;
+        }
+      } catch (err) {
+        console.log(`Mongoose findById failed:`, err.message);
+      }
+    }
+    
+    // Array to store query conditions
+    const queryConditions = [];
+    
+    // Try as ObjectId
+    if (typeof id === 'string' && id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const objId = new ObjectId(id);
+        queryConditions.push({ _id: objId });
+      } catch (err) {
+        console.log(`Could not convert ${id} to ObjectId:`, err.message);
+      }
+    }
+    
+    // Try as plain string ID
+    if (typeof id === 'string') {
+      queryConditions.push({ _id: id });
+    }
+    
+    // Add any alternative field lookups
+    for (const field of alternativeFields) {
+      if (field && id) {
+        queryConditions.push({ [field]: id });
+      }
+    }
+    
+    // If we have any query conditions, search for the document
+    if (queryConditions.length > 0) {
+      const query = queryConditions.length === 1 
+        ? queryConditions[0] 
+        : { $or: queryConditions };
+      
+      console.log('Searching with query:', JSON.stringify(query));
+      
+      // If we have a mongoose model, use it
+      if (modelType) {
+        const doc = await modelType.findOne(query);
+        if (doc) {
+          console.log(`Found document using mongoose findOne with query`);
+          return doc;
+        }
+      }
+      
+      // Otherwise use the MongoDB native driver collection
+      const doc = await collection.findOne(query);
+      if (doc) {
+        console.log(`Found document using MongoDB native findOne`);
+        return doc;
+      } else {
+        console.log(`No document found with any method for ID: ${id}`);
+      }
+    }
+    
+    // Document truly not found
+    console.log(`Document not found in ${collection.collectionName || 'collection'} with ID: ${id}`);
+    return null;
+  } catch (error) {
+    console.error('Error in findDocumentById:', error);
+    return null;
+  }
+}
+
+// Update Admin model to use both model and collection approaches
+const Admin = {
+  findById: async function(id) {
+    try {
+      if (!db) {
+        throw new Error('Database not initialized');
+      }
+      // First try to find in adminDB
+      const adminUser = await findDocumentById(db.collection('admins'), id, { 
+        alternativeFields: ['username'] 
+      });
+      
+      if (adminUser) return adminUser;
+      
+      // If not found and robolutionDb is available, try there too
+      if (robolutionDb) {
+        return await findDocumentById(robolutionDb.collection('admins'), id, {
+          alternativeFields: ['username']
+        });
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error in Admin.findById:', error);
+      throw error;
+    }
+  }
+};
+
+// Update the route to show individual post details with direct MongoDB collection access
+app.get('/post/:id', async (req, res) => {
+  try {
+    console.log('Accessing post with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS - bypass Mongoose completely
+    // This is the most direct and reliable way to access the data
+    const postsCollection = robolutionDb.collection('posts');
+    
+    // Try multiple query approaches
+    let post = null;
+    
+    // 1. Try direct string ID lookup
+    post = await postsCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', post ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!post && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        post = await postsCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', post ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by title if still not found
+    if (!post) {
+      // Search by title as a last resort
+      post = await postsCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
+      console.log('Title search result:', post ? 'Found' : 'Not found');
+    }
+    
+    // Log the full database structure if still not found
+    if (!post) {
+      console.log('Post still not found, checking database structure...');
+      
+      // Get collection structure
+      const postsSample = await postsCollection.find().limit(1).toArray();
+      console.log('Sample post structure:', JSON.stringify(postsSample, null, 2));
+      
+      console.error('Post not found with ID:', req.params.id);
+      return res.status(404).send('Post not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object 
+    // This ensures compatibility with templates and avoids MongoDB document restrictions
+    const postObject = JSON.parse(JSON.stringify(post));
+    
+    res.render('UserViews/post-detail', { 
+      post: postObject,
+      req: req
+    });
+  } catch (error) {
+    console.error('Error fetching post details:', error);
+    res.status(500).send('An error occurred while fetching the post details');
+  }
+});
+
+// Update route to show edit post page with direct MongoDB access
+app.get('/edit-post/:id', requireAdmin, async (req, res) => {
+  // Check if user is logged in and is an admin
+  if (!req.session.user || !req.session.user.isAdmin) {
+    return res.redirect('/login');
+  }
+
+  try {
+    console.log('Accessing post for editing, ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS - bypass Mongoose completely
+    const postsCollection = robolutionDb.collection('posts');
+    
+    // Get all posts for regions dropdown using native MongoDB
+    const posts = await postsCollection.find().toArray();
+
+    // Try multiple query approaches to find the specific post
+    let post = null;
+    
+    // 1. Try direct string ID lookup
+    post = await postsCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', post ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!post && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        post = await postsCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', post ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by title if still not found
+    if (!post) {
+      // Search by title as a last resort
+      post = await postsCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
+      console.log('Title search result:', post ? 'Found' : 'Not found');
+    }
+
+    if (!post) {
+      // Log the full database structure if still not found
+      console.log('Post still not found, checking database structure...');
+      
+      // Get collection structure
+      const postsSample = await postsCollection.find().limit(1).toArray();
+      console.log('Sample post structure:', JSON.stringify(postsSample, null, 2));
+      
+      console.error('Post not found with ID:', req.params.id);
+      return res.status(404).send('Post not found');
+    }
+
+    // Convert MongoDB document to a JavaScript object
+    const postObject = JSON.parse(JSON.stringify(post));
+    
+    // Get unique regions from posts
+    const uniqueRegions = [...new Set(posts
+      .map(p => p.region)
+      .filter(region => region && region !== 'All')
+    )].sort();
+
+    res.render('edit-post', { 
+      post: postObject,
+      uniqueRegions
+    });
+  } catch (error) {
+    console.error('Error finding post:', error);
+    res.status(500).send('Server error');
+  }
+});
+
+// Update both category detail routes with direct MongoDB access
+app.get('/categories/:id', async (req, res) => {
+  try {
+    console.log('Accessing category with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const categoriesCollection = robolutionDb.collection('categories');
+    
+    // Try multiple query approaches
+    let category = null;
+    
+    // 1. Try direct string ID lookup
+    category = await categoriesCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', category ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!category && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        category = await categoriesCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', category ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by title if still not found
+    if (!category) {
+      category = await categoriesCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
+      console.log('Title search result:', category ? 'Found' : 'Not found');
+    }
+    
+    if (category) {
+      // Convert MongoDB document to a JavaScript object
+      const categoryObject = JSON.parse(JSON.stringify(category));
+      res.render('category-details', { event: categoryObject });
+    } else {
+      // Log the full database structure if still not found
+      console.log('Category still not found, checking database structure...');
+      
+      // Get collection structure
+      const categorySample = await categoriesCollection.find().limit(1).toArray();
+      console.log('Sample category structure:', JSON.stringify(categorySample, null, 2));
+      
+      console.error('Event not found with ID:', req.params.id);
+      res.status(404).send('Event not found');
+    }
+  } catch (error) {
+    console.error('Error fetching category details:', error);
+    res.status(500).send('An error occurred while fetching the category details');
+  }
+});
+
+app.get('/user-categories/:id', async (req, res) => {
+  try {
+    console.log('Accessing user category with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const categoriesCollection = robolutionDb.collection('categories');
+    
+    // Try multiple query approaches
+    let category = null;
+    
+    // 1. Try direct string ID lookup
+    category = await categoriesCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', category ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!category && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        category = await categoriesCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', category ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by title if still not found
+    if (!category) {
+      category = await categoriesCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
+      console.log('Title search result:', category ? 'Found' : 'Not found');
+    }
+    
+    if (category) {
+      // Convert MongoDB document to a JavaScript object
+      const categoryObject = JSON.parse(JSON.stringify(category));
+      res.render('UserViews/user-category_details', { event: categoryObject });
+    } else {
+      // Log the full database structure if still not found
+      console.log('Category still not found, checking database structure...');
+      
+      // Get collection structure
+      const categorySample = await categoriesCollection.find().limit(1).toArray();
+      console.log('Sample category structure:', JSON.stringify(categorySample, null, 2));
+      
+      console.error('Event not found with ID:', req.params.id);
+      res.status(404).send('Event not found');
+    }
+  } catch (error) {
+    console.error('Error fetching category details:', error);
+    res.status(500).send('An error occurred while fetching the category details');
+  }
+});
+
+// Update route to view individual registration details with direct MongoDB access
+app.get('/registration/:id', async (req, res) => {
+  try {
+    console.log('Accessing registration with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const registrationsCollection = robolutionDb.collection('registrations');
+    
+    // Try multiple query approaches
+    let registration = null;
+    
+    // 1. Try direct string ID lookup
+    registration = await registrationsCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', registration ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!registration && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        registration = await registrationsCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', registration ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by email or fullname if still not found
+    if (!registration) {
+      registration = await registrationsCollection.findOne({ 
+        $or: [
+          { email: { $regex: new RegExp(req.params.id, 'i') } },
+          { fullname: { $regex: new RegExp(req.params.id, 'i') } }
+        ] 
+      });
+      console.log('Email/Name search result:', registration ? 'Found' : 'Not found');
+    }
+    
+    if (!registration) {
+      // Log the full database structure if still not found
+      console.log('Registration still not found, checking database structure...');
+      
+      // Get collection structure
+      const registrationSample = await registrationsCollection.find().limit(1).toArray();
+      console.log('Sample registration structure:', JSON.stringify(registrationSample, null, 2));
+      
+      console.error('Registration not found with ID:', req.params.id);
+      return res.status(404).send('Registration not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const registrationObject = JSON.parse(JSON.stringify(registration));
+    
+    res.render('registration-detail', { 
+      registration: registrationObject, 
+      user: req.session.user 
+    });
+  } catch (error) {
+    console.error('Error fetching registration details:', error);
+    res.status(500).send('An error occurred while fetching registration details');
+  }
+});
+
+// Update the route to view user profile with direct MongoDB collection access
+app.get('/profile', requireLogin, async (req, res) => { // Added requireLogin
+  // Check if user is logged in -- REMOVED MANUAL CHECK
+  // if (!req.session || !req.session.user || !req.session.user.id) {
+  //   console.log('No valid session for profile access:', { 
+  //     hasSession: !!req.session,
+  //     hasUser: req.session ? !!req.session.user : false,
+  //     userId: req.session && req.session.user ? req.session.user.id : null
+  //   });
+    
+  //   // Add redirect parameter so user can return to profile page after logging in
+  //   return res.redirect('/login?redirect=/profile');
+  // }
+  
+  try {
+    console.log('Attempting to find user with ID:', req.session.user.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const usersCollection = robolutionDb.collection('users');
+    
+    // Try multiple query approaches
+    let user = null;
+    
+    // 1. Try direct string ID lookup
+    user = await usersCollection.findOne({ _id: req.session.user.id });
+    console.log('Direct string ID lookup result:', user ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!user && req.session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        user = await usersCollection.findOne({ _id: new ObjectId(req.session.user.id) });
+        console.log('ObjectId lookup result:', user ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by username if still not found
+    if (!user && req.session.user.username) {
+      user = await usersCollection.findOne({ username: req.session.user.username });
+      console.log('Username lookup result:', user ? 'Found' : 'Not found');
+    }
+    
+    // 4. Try by email if still not found and available
+    if (!user && req.session.user.email) {
+      user = await usersCollection.findOne({ email: req.session.user.email });
+      console.log('Email lookup result:', user ? 'Found' : 'Not found');
+    }
+    
+    if (!user) {
+      // User not found in database - likely due to database restore
+      console.log('User not found in database but has session:', req.session.user);
+      
+      // Log the full database structure
+      console.log('User still not found, checking database structure...');
+      
+      // Get collection structure
+      const userSample = await usersCollection.find().limit(1).toArray();
+      console.log('Sample user structure:', JSON.stringify(userSample, null, 2));
+      
+      // Render an error page instead of redirecting to login
+      return res.render('UserViews/user-error', {
+        error: 'Account Not Found',
+        message: 'Your user account could not be found in the database. This may be due to a recent database restore operation. Please sign up for a new account.',
+        actionText: 'Sign Up',
+        actionLink: '/signup',
+        showLogoutButton: true
+      });
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const userObject = JSON.parse(JSON.stringify(user));
+    
+    // Calculate age from birth date if available
+    let age = null;
+    if (userObject.birthDate && userObject.birthDate.month && userObject.birthDate.year) {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+      const currentYear = currentDate.getFullYear();
+      
+      age = currentYear - userObject.birthDate.year;
+      
+      // If birth month is after current month, subtract 1 from age
+      if (userObject.birthDate.month > currentMonth) {
+        age--;
+      }
+    }
+    
+    // Get user's registrations with direct collection access
+    let registrations = [];
+    try {
+      console.log(`Looking for registrations with userId: ${userObject._id}`);
+      
+      // Direct collection access
+      const registrationsCollection = robolutionDb.collection('registrations');
+      
+      if (registrationsCollection) {
+        // Try multiple approaches to find registrations
+        const userId = userObject._id;
+        const userIdString = userObject._id.toString ? userObject._id.toString() : userObject._id;
+        const userEmail = userObject.email;
+        
+        let regQuery = { $or: [] };
+        
+        // Add user ID conditions
+        if (userId) regQuery.$or.push({ userId: userId });
+        if (userIdString) regQuery.$or.push({ userId: userIdString });
+        
+        // Try to convert to ObjectId if it's a string in the right format
+        if (typeof userIdString === 'string' && userIdString.match(/^[0-9a-fA-F]{24}$/)) {
+          try {
+            const ObjectId = require('mongodb').ObjectId;
+            regQuery.$or.push({ userId: new ObjectId(userIdString) });
+          } catch (err) {
+            console.error('Error converting userId to ObjectId:', err.message);
+          }
+        }
+        
+        // Add email condition if available
+        if (userEmail) regQuery.$or.push({ email: userEmail });
+        
+        // Only run query if we have at least one condition
+        if (regQuery.$or.length > 0) {
+          console.log('Registration query:', JSON.stringify(regQuery));
+          registrations = await registrationsCollection.find(regQuery).sort({ registeredAt: -1 }).toArray();
+          console.log(`Found ${registrations.length} registrations`);
+          
+          // Convert registrations to plain objects
+          registrations = JSON.parse(JSON.stringify(registrations));
+        } else {
+          console.log('No valid conditions for registration query');
+        }
+      } else {
+        console.log('Registrations collection not found');
+      }
+    } catch (regError) {
+      console.error('Error fetching registrations:', regError);
+    }
+    
+    // Render the profile page with all necessary data
+    res.render('UserViews/profile', { 
+      user: userObject,
+      age,
+      registrations,
+      profilePicture: userObject.profilePicture || '/images/default-profile.jpg'
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).send('Error fetching user profile');
+  }
+});
+
+// Update account/admin/edit route with direct DB access
+app.get('/account/admin/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    console.log('Accessing admin account with ID:', req.params.id);
+    
+    // Try to access the admin account from both databases
+    let admin = null;
+    
+    // 1. Try adminDB first with direct string ID
+    if (db) {
+      admin = await db.collection('admins').findOne({ _id: req.params.id });
+      console.log('adminDB direct string ID lookup result:', admin ? 'Found' : 'Not found');
+    }
+    
+    // 2. Try adminDB with ObjectID
+    if (!admin && db && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        admin = await db.collection('admins').findOne({ _id: new ObjectId(req.params.id) });
+        console.log('adminDB ObjectId lookup result:', admin ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try adminDB by username
+    if (!admin && db) {
+      admin = await db.collection('admins').findOne({ username: req.params.id });
+      console.log('adminDB username lookup result:', admin ? 'Found' : 'Not found');
+    }
+    
+    // 4. Try robolution admins collection as fallback
+    if (!admin && robolutionDb) {
+      // Try string ID first
+      admin = await robolutionDb.collection('admins').findOne({ _id: req.params.id });
+      console.log('robolutionDb admins direct string ID lookup result:', admin ? 'Found' : 'Not found');
+      
+      // Try ObjectID if needed
+      if (!admin && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
+          const ObjectId = require('mongodb').ObjectId;
+          admin = await robolutionDb.collection('admins').findOne({ _id: new ObjectId(req.params.id) });
+          console.log('robolutionDb admins ObjectId lookup result:', admin ? 'Found' : 'Not found');
+        } catch (err) {
+          console.error('Error with ObjectId conversion for robolutionDb:', err.message);
+        }
+      }
+      
+      // Try username in robolution admins
+      if (!admin) {
+        admin = await robolutionDb.collection('admins').findOne({ username: req.params.id });
+        console.log('robolutionDb admins username lookup result:', admin ? 'Found' : 'Not found');
+      }
+    }
+    
+    if (!admin) {
+      // Log the full database structure if still not found
+      console.log('Admin still not found, checking database structure...');
+      
+      // Get collection structure from both DBs
+      if (db) {
+        const adminSample = await db.collection('admins').find().limit(1).toArray();
+        console.log('Sample adminDB admin structure:', JSON.stringify(adminSample, null, 2));
+      }
+      
+      if (robolutionDb) {
+        const robolutionAdminSample = await robolutionDb.collection('admins').find().limit(1).toArray();
+        console.log('Sample robolutionDb admin structure:', JSON.stringify(robolutionAdminSample, null, 2));
+      }
+      
+      console.error('Admin account not found with ID:', req.params.id);
+      return res.status(404).send('Admin account not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const adminObject = JSON.parse(JSON.stringify(admin));
+    
+    // Get unique regions for the dropdown menu using direct collection access
+    const postsCollection = robolutionDb.collection('posts');
+    const posts = await postsCollection.find().toArray();
+    const uniqueRegions = [...new Set(posts
+      .map(p => p.region)
+      .filter(region => region && region !== 'All')
+    )].sort();
+    
+    res.render('edit-admin', {
+      admin: adminObject,
+      user: req.session.user,
+      uniqueRegions,
+      dashboard: isDashboard // Pass dashboard status
+    });
+  } catch (error) {
+    console.error('Error fetching admin account:', error);
+    res.status(500).send('An error occurred while fetching account information');
+  }
+});
+
+// Update account/user/edit route with direct MongoDB access
+app.get('/account/user/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    console.log('Accessing user account for editing with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const usersCollection = robolutionDb.collection('users');
+    
+    // Try multiple query approaches
+    let userAccount = null;
+    
+    // 1. Try direct string ID lookup
+    userAccount = await usersCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', userAccount ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!userAccount && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        userAccount = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', userAccount ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by username or email if still not found
+    if (!userAccount) {
+      userAccount = await usersCollection.findOne({ 
+        $or: [
+          { username: req.params.id },
+          { email: req.params.id }
+        ]
+      });
+      console.log('Username/Email search result:', userAccount ? 'Found' : 'Not found');
+    }
+    
+    if (!userAccount) {
+      // Log the full database structure if still not found
+      console.log('User account still not found, checking database structure...');
+      
+      // Get collection structure
+      const userSample = await usersCollection.find().limit(1).toArray();
+      console.log('Sample user account structure:', JSON.stringify(userSample, null, 2));
+      
+      console.error('User account not found with ID:', req.params.id);
+      return res.status(404).send('User account not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const userAccountObject = JSON.parse(JSON.stringify(userAccount));
+    
+    // Get unique regions using direct collection access
+    const postsCollection = robolutionDb.collection('posts');
+    const posts = await postsCollection.find().toArray();
+    const uniqueRegions = [...new Set(posts
+      .map(p => p.region)
+      .filter(region => region && region !== 'All')
+    )].sort();
+    
+    res.render('edit-user', {
+      userAccount: userAccountObject,
+      currentUser: req.session.user,
+      uniqueRegions
+    });
+  } catch (error) {
+    console.error('Error fetching user account:', error);
+    res.status(500).send('An error occurred while fetching account information');
+  }
+});
+
+// Update admin/user-profiles/:id route with direct MongoDB access
+app.get('/admin/user-profiles/:id', requireAdmin, async (req, res) => {
+  try {
+    console.log('Accessing user profile with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const usersCollection = robolutionDb.collection('users');
+    
+    // Try multiple query approaches
+    let userProfile = null;
+    
+    // 1. Try direct string ID lookup
+    userProfile = await usersCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', userProfile ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!userProfile && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        userProfile = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', userProfile ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by username or email if still not found
+    if (!userProfile) {
+      userProfile = await usersCollection.findOne({ 
+        $or: [
+          { username: req.params.id },
+          { email: req.params.id }
+        ]
+      });
+      console.log('Username/Email search result:', userProfile ? 'Found' : 'Not found');
+    }
+    
+    if (!userProfile) {
+      // Log the full database structure if still not found
+      console.log('User profile still not found, checking database structure...');
+      
+      // Get collection structure
+      const userSample = await usersCollection.find().limit(1).toArray();
+      console.log('Sample user profile structure:', JSON.stringify(userSample, null, 2));
+      
+      console.error('User not found with ID:', req.params.id);
+      return res.status(404).send('User not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const userProfileObject = JSON.parse(JSON.stringify(userProfile));
+    
+    // Calculate age from birth date if available
+    let age = null;
+    if (userProfileObject.birthDate && userProfileObject.birthDate.month && userProfileObject.birthDate.year) {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const currentYear = currentDate.getFullYear();
+      
+      age = currentYear - userProfileObject.birthDate.year;
+      
+      if (userProfileObject.birthDate.month > currentMonth) {
+        age--;
+      }
+    }
+    
+    res.render('admin-view-user-profile', {
+      userProfile: userProfileObject,
+      age,
+      profilePicture: userProfileObject.profilePicture || '/images/default-profile.jpg',
+      user: req.session.user
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).send('Error fetching user profile');
+  }
+});
+
+// Route to make a user an admin
+app.get('/account/user/make-admin/:id', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    console.log(`Attempting to make user with ID: ${userId} an admin.`);
+
+    // Find the user in the User collection
+    let userToPromote = null;
+    const usersCollection = robolutionDb.collection('users');
+
+    // 1. Try direct string ID lookup
+    userToPromote = await usersCollection.findOne({ _id: userId });
+    if (userToPromote) console.log('Found user by direct string ID in users collection.');
+
+    // 2. Try ObjectID lookup if string ID failed
+    if (!userToPromote && userId.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        userToPromote = await usersCollection.findOne({ _id: new ObjectId(userId) });
+        if (userToPromote) console.log('Found user by ObjectId in users collection.');
+      } catch (err) {
+        console.error('Error converting userId to ObjectId for users collection:', err.message);
+      }
+    }
+
+    if (!userToPromote) {
+      req.flash('error', 'User not found or ID is invalid.');
+      return res.redirect('/manage-accounts');
+    }
+
+    console.log(`User found: ${userToPromote.username}. Preparing to promote.`);
+
+    // Check if admin with the same username already exists in adminDB
+    const adminDbAdminsCollection = db.collection('admins');
+    const existingAdmin = await adminDbAdminsCollection.findOne({ username: userToPromote.username });
+
+    if (existingAdmin) {
+      console.log(`Admin with username ${userToPromote.username} already exists.`);
+      req.flash('error', `An admin with username '${userToPromote.username}' already exists.`);
+      return res.redirect('/manage-accounts');
+    }
+
+    // Prepare admin data
+    const adminData = {
+      username: userToPromote.username,
+      password: userToPromote.password, // Copy hashed password
+      role: 'admin', // Assign admin role
+      twoFactorSecret: userToPromote.twoFactorSecret,
+      twoFactorEnabled: userToPromote.twoFactorEnabled,
+      backupCodes: userToPromote.backupCodes,
+      needs2FASetup: userToPromote.needs2FASetup || false,
+      createdAt: userToPromote.createdAt || new Date(),
+      // Preserve original _id if possible, or let MongoDB generate a new one
+      // _id: userToPromote._id 
+    };
+    
+    // If the original user ID is an ObjectId, try to use it for the new admin record
+    // Otherwise, let MongoDB generate a new _id for the admin record.
+    if (userToPromote._id && (userToPromote._id.constructor.name === 'ObjectID' || userToPromote._id.constructor.name === 'ObjectId')) {
+        adminData._id = userToPromote._id;
+    } else if (typeof userToPromote._id === 'string' && userToPromote._id.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
+            const ObjectId = require('mongodb').ObjectId;
+            adminData._id = new ObjectId(userToPromote._id);
+        } catch (e) {
+            console.log('Could not convert user _id to ObjectId for admin record, will let MongoDB generate new _id');
+        }
+    }
+
+    console.log('Admin data prepared:', adminData);
+
+    // Insert into adminDB admins collection
+    await adminDbAdminsCollection.insertOne(adminData);
+    console.log(`User ${userToPromote.username} added to adminDB admins collection.`);
+
+    // Also add/update in robolutionDb admins collection for redundancy and direct query consistency
+    const robolutionDbAdminsCollection = robolutionDb.collection('admins');
+    // Use upsert to add if not exists, or update if exists (e.g., if ID was preserved)
+    await robolutionDbAdminsCollection.updateOne(
+        { _id: adminData._id || new require('mongodb').ObjectId() }, // Match by ID if it was set
+        { $set: adminData },
+        { upsert: true }
+    );
+    console.log(`User ${userToPromote.username} upserted into robolutionDb admins collection.`);
+
+    // Delete from the original User collection
+    // Use the original _id from userToPromote for deletion
+    let deleteResultUser;
+    if (userToPromote._id.constructor.name === 'ObjectID' || userToPromote._id.constructor.name === 'ObjectId') {
+        deleteResultUser = await usersCollection.deleteOne({ _id: userToPromote._id });
+    } else if (typeof userToPromote._id === 'string' && userToPromote._id.match(/^[0-9a-fA-F]{24}$/)){
+        deleteResultUser = await usersCollection.deleteOne({ _id: new require('mongodb').ObjectId(userToPromote._id) });
+    } else {
+        // Fallback to deleting by string id if it's not an ObjectId and doesn't look like one
+        deleteResultUser = await usersCollection.deleteOne({ _id: userToPromote._id.toString() });
+    }
+
+    if (deleteResultUser.deletedCount === 1) {
+      console.log(`User ${userToPromote.username} deleted from users collection.`);
+      req.flash('success', `User '${userToPromote.username}' has been successfully promoted to admin.`);
+    } else {
+      console.log(`Failed to delete user ${userToPromote.username} from users collection. User might have already been deleted or ID mismatch.`);
+      // Even if deletion fails, the admin record was created, so it's a partial success.
+      // Log this as an inconsistency.
+      req.flash('warning', `User '${userToPromote.username}' promoted to admin, but there was an issue removing the original user record. Please check manually.`);
+    }
+
+    res.redirect('/manage-accounts');
+
+  } catch (error) {
+    console.error('Error promoting user to admin:', error);
+    req.flash('error', 'An error occurred while promoting the user to admin.');
+    res.redirect('/manage-accounts');
+  }
+});
+
+// Middleware to require login for regular users
+const requireLogin = (req, res, next) => {
+    if (!req.session.user || !req.session.user.id) {
+        // Store the original URL to redirect back after login
+        const redirectUrl = req.originalUrl;
+        req.flash('error', 'You must be logged in to view this page.');
+        return res.redirect(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
+    }
+    next();
+};
+
+app.use('/images', express.static('public/images', {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.webm')) {
+      res.setHeader('Content-Type', 'video/webm');
+    }
+  }
+}));
+
+// Route for admin dashboard
+app.get('/admin-dashboard', requireAdmin, async (req, res) => {
+    try {
+        const posts = await Post.find({}); // For uniqueRegions
+        const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
+        
+        res.render('admin-dashboard', { 
+            user: req.session.user,
+            uniqueRegions: uniqueRegions,
+            pageTitle: 'Admin Dashboard', // Optional: for consistency
+            dashboard: true // Explicitly pass dashboard true for the main dashboard page itself
+        });
+    } catch (error) {
+        console.error('Error loading admin dashboard:', error);
+        req.flash('error', 'Error loading dashboard.');
+        res.redirect('/login'); // Or an error page
+    }
+});
+
+// ==== USER PROFILE ROUTES ==== 
+
+// GET route to display user profile page
+app.get('/profile', requireLogin, async (req, res) => {
+    try {
+        // The user object is already populated by requireLogin if successful,
+        // but we need to fetch full details from DB
+        const user = await User.findById(req.session.user.id);
+        if (!user) {
+            req.flash('error', 'User not found.');
+            // If user somehow not found after login, redirect to login.
+            return res.redirect('/login');
+        }
+
+        let age = null;
+        if (user.birthDate && user.birthDate.month && user.birthDate.year) {
+            const birthDate = new Date(user.birthDate.year, user.birthDate.month - 1);
+            const today = new Date();
+            age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+        }
+
+        const registrations = await Registration.find({ userId: user._id }).sort({ registeredAt: -1 });
+
+        res.render('UserViews/profile', {
+            user,
+            age,
+            registrations,
+            profilePicture: user.profilePicture || '/images/default-profile.jpg'
+        });
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        req.flash('error', 'Error fetching profile.');
+        res.redirect('/user-landing'); // Or a generic error page
+    }
+});
+
+// POST route to update user profile
+app.post('/profile/update', requireLogin, upload.single('profilePicture'), async (req, res) => {
+    try {
+        const { birthMonth, birthYear, school, address } = req.body;
+        const user = await User.findById(req.session.user.id);
+
+        if (!user) {
+            // This should ideally not happen if requireLogin works
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (birthMonth && birthYear) {
+            user.birthDate = { month: parseInt(birthMonth), year: parseInt(birthYear) };
+        }
+        // Allow clearing fields by providing empty strings
+        user.school = school !== undefined ? school : user.school;
+        user.address = address !== undefined ? address : user.address;
+
+        if (req.file) {
+            const filePath = req.file.path; // Path from multer
+            const result = await uploadToCloudinary(filePath, 'robolution/profiles');
+            user.profilePicture = result;
+        }
+
+        await user.save();
+        res.json({ success: true, message: 'Profile updated successfully', profilePicture: user.profilePicture });
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ success: false, message: 'Error updating profile' });
+    }
+});
+
+// POST route to change user password from profile
+app.post('/profile/change-password', requireLogin, async (req, res) => {
+    try {
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ success: false, message: 'All fields are required.' });
+        }
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ success: false, message: 'New passwords do not match.' });
+        }
+         // Add password complexity check (example)
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!passwordRegex.test(newPassword)) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.' });
+        }
+
+        const user = await User.findById(req.session.user.id);
+        if (!user) {
+            // Should not happen due to requireLogin
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Incorrect current password.' });
+        }
+
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
+        res.json({ success: true, message: 'Password changed successfully.' });
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(500).json({ success: false, message: 'Error changing password.' });
+    }
+});
+
+// Update routes for 2FA setup and verification
+// ... existing code ...
