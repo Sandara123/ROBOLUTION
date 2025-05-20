@@ -15,7 +15,7 @@
       max-width: 800px;
       margin: 0 auto;
       padding: 20px;
-      margin-top: 100px;
+      margin-top: 100px; /* Default margin-top */
       background: white;
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -216,8 +216,29 @@
       }
     }
   </style>
+  <% if (locals.dashboard) { %>
+  <style>
+    /* Dashboard specific overrides */
+    header, footer.fixed-footer { /* Assuming your footer has class fixed-footer */
+      display: none !important;
+    }
+    .profile-container {
+      margin-top: 20px !important; /* Adjust top margin if header is hidden */
+      padding-top: 0 !important;
+      box-shadow: none !important; /* Optional: remove shadow if it looks odd in iframe */
+    }
+    body,
+    main {
+      background-color: #ffffff !important; /* Ensure consistent background for iframe */
+      background-image: none !important;
+      padding: 0 !important; /* Remove body/main padding if any */
+      margin: 0 !important;
+    }
+  </style>
+  <% } %>
 </head>
 <body>
+  <% if (!locals.dashboard) { %>
   <header>
     <div class="header-content">
       <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
@@ -246,6 +267,7 @@
       </nav>
     </div>
   </header>
+  <% } %>
 
   <div class="profile-container">
     <div class="breadcrumb">
@@ -364,6 +386,10 @@
       </div>
     </div>
   </div>
+
+  <% if (!locals.dashboard) { %>
+  <!-- No explicit footer in this file, but if there was one, it would be wrapped here -->
+  <% } %>
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {

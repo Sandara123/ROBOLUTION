@@ -341,7 +341,7 @@
                     </span>
                   </td>
                   <td class="actions-cell">
-                    <a href="/account/admin/edit/<%= admin._id %>" class="action-button edit">Edit</a>
+                    <a href="/account/admin/edit/<%= admin._id %><%= locals.dashboard ? '?dashboard=true' : '' %>" class="action-button edit">Edit</a>
                     <% if (user.id !== admin._id.toString()) { %>
                       <button onclick="confirmResetAdminPassword('<%= admin._id %>', '<%= admin.username %>')" class="action-button" style="background-color: #ff9800;">Reset Password</button>
                       <button onclick="confirmDeleteAdmin('<%= admin._id %>', '<%= admin.username %>')" class="action-button delete">Delete</button>
@@ -391,7 +391,7 @@
                     </span>
                   </td>
                   <td class="actions-cell">
-                    <a href="/account/user/edit/<%= userAccount._id %>" class="action-button edit">Edit</a>
+                    <a href="/account/user/edit/<%= userAccount._id %><%= locals.dashboard ? '?dashboard=true' : '' %>" class="action-button edit">Edit</a>
                     <button onclick="showChangePasswordModal('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button change-pwd">Change Password</button>
                     <button onclick="confirmResetPassword('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #ff9800;">Reset Password</button>
                     <button onclick="confirmMakeAdmin('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #28a745;">Make Admin</button>

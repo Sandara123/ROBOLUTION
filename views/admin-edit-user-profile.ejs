@@ -243,11 +243,30 @@
       }
     }
   </style>
+  <% if (locals.dashboard) { %>
+  <style>
+    /* Dashboard specific overrides */
+    header, footer.fixed-footer {
+      display: none !important;
+    }
+    .profile-container {
+      margin-top: 20px !important;
+      padding-top: 0 !important;
+      box-shadow: none !important;
+    }
+    body,
+    main {
+      background-color: #ffffff !important;
+      background-image: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+  </style>
+  <% } %>
 </head>
 
 <body>
-<div class="content-wrapper">
-
+  <% if (!locals.dashboard) { %>
   <header>
     <div class="header-content">
       <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
@@ -281,7 +300,8 @@
       </nav>
     </div>
   </header>
-
+  <% } %>
+<div class="content-wrapper">
   <main>
     <div class="profile-container">
       <div class="profile-card">
@@ -371,7 +391,7 @@
       </div>
     </div>
   </main>
-
+  <% if (!locals.dashboard) { %>
   <footer class="fixed-footer">
     <div class="footer-content">
       <div class="footer-left">
@@ -388,6 +408,7 @@
       </div>
     </div>
   </footer>
+  <% } %>
 </div>
 
 <script>
