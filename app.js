@@ -2885,36 +2885,118 @@ app.get('/account/admin/edit/:id', requireAdmin, async (req, res) => {
 // Route to handle admin account updates
 app.post('/account/admin/edit/:id', requireAdmin, async (req, res) => {
   try {
-    // Convert string ID to ObjectId
     const ObjectId = require('mongodb').ObjectId;
-    const adminId = new ObjectId(req.params.id);
-    
-    const { username, role, resetPassword } = req.body;
-    
-    // Prepare update data
-    const updateData = {
-      username,
-      role: role || 'admin'
-    };
-    
-    // If reset password flag is set, hash a new default password
-    if (resetPassword === 'on') {
-      const defaultPassword = 'Robolution@2023'; // Default password
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds);
-      updateData.password = hashedPassword;
+    let adminIdToEdit;
+    try {
+      adminIdToEdit = new ObjectId(req.params.id);
+    } catch (e) {
+      req.flash('error', 'Invalid admin ID format for editing.');
+      return res.redirect('/manage-accounts');
     }
-    
-    // Update the admin account
-    await db.collection('admins').updateOne(
-      { _id: adminId },
-      { $set: updateData }
-    );
-    
-    res.redirect('/manage-accounts');
+
+    const { username, role, resetPassword } = req.body;
+
+    const adminBeingEdited = await db.collection('admins').findOne({ _id: adminIdToEdit });
+    if (!adminBeingEdited) {
+        req.flash('error', 'Admin account to edit not found.');
+        return res.redirect('/manage-accounts');
+    }
+
+    if (role === 'user') {
+      // === DEMOTION LOGIC ===
+      console.log(`Attempting to demote admin: ${adminBeingEdited.username} (ID: ${adminIdToEdit}) to user.`);
+
+      const adminCount = await db.collection('admins').countDocuments();
+      if (adminCount <= 1) {
+        req.flash('error', 'Cannot demote the last admin account. Create another admin first.');
+        return res.redirect('/manage-accounts');
+      }
+      
+      const defaultUserPassword = 'Robolution@2023'; // Consistent default password
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(defaultUserPassword, saltRounds);
+
+      const newUserDetails = {
+        username: adminBeingEdited.username,
+        email: adminBeingEdited.email || `${adminBeingEdited.username.replace(/\s+/g, '').toLowerCase()}@robolution.default`, // Generate a default email if none
+        fullName: adminBeingEdited.fullName || adminBeingEdited.username,
+        password: hashedPassword,
+        role: 'user',
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        backupCodes: [],
+        needs2FASetup: true, 
+        createdAt: adminBeingEdited.createdAt || new Date(),
+        school: adminBeingEdited.school || '',
+        address: adminBeingEdited.address || '',
+        profilePicture: adminBeingEdited.profilePicture || null
+      };
+
+      const existingUser = await User.findOne({ username: newUserDetails.username });
+      if (existingUser) {
+          req.flash('error', `Cannot demote: A user account with username '${newUserDetails.username}' already exists.`);
+          return res.redirect('/manage-accounts');
+      }
+      
+      const createdUser = await User.create(newUserDetails);
+      console.log(`User account created for demoted admin: ${createdUser.username} (ID: ${createdUser._id})`);
+
+      await db.collection('admins').deleteOne({ _id: adminIdToEdit });
+      if (robolutionDb) { // Check if robolutionDb is initialized
+        await robolutionDb.collection('admins').deleteOne({ _id: adminIdToEdit });
+      }
+      console.log(`Old admin account deleted: ${adminBeingEdited.username}`);
+
+      req.flash('success', `Admin '${adminBeingEdited.username}' has been successfully demoted to a user. Password reset, 2FA setup required on login.`);
+      return res.redirect('/manage-accounts');
+
+    } else {
+      // === REGULAR ADMIN UPDATE LOGIC ===
+      const updateData = {
+        username: username,
+        role: role || 'admin' 
+      };
+
+      if (resetPassword === 'on') {
+        const defaultAdminPassword = 'Robolution@2023';
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(defaultAdminPassword, saltRounds);
+        updateData.password = hashedPassword;
+        updateData.twoFactorEnabled = false;
+        updateData.twoFactorSecret = null;
+        updateData.backupCodes = [];
+        // For admins, needs2FASetup might not be in their schema, or handled differently.
+        // If it exists in admin schema, set it. Otherwise, this might be ignored or cause an error if schema is strict.
+        // It's primarily for users. For now, let's assume admin schema is flexible or this field is specific to User model.
+        // We can add it if the Admin model is being updated to have this field.
+        // updateData.needs2FASetup = true; 
+      }
+
+      const adminDbUpdateResult = await db.collection('admins').updateOne(
+        { _id: adminIdToEdit },
+        { $set: updateData }
+      );
+      let robolutionDbAdminUpdateResult = { modifiedCount: 0, matchedCount: 0 };
+      if (robolutionDb) { // Check if robolutionDb is initialized
+        robolutionDbAdminUpdateResult = await robolutionDb.collection('admins').updateOne(
+            { _id: adminIdToEdit },
+            { $set: updateData }
+        );
+      }
+
+      if (adminDbUpdateResult.modifiedCount > 0 || robolutionDbAdminUpdateResult.modifiedCount > 0) {
+         req.flash('success', `Admin account '${updateData.username}' updated successfully.`);
+      } else if (adminDbUpdateResult.matchedCount > 0 || robolutionDbAdminUpdateResult.matchedCount > 0) {
+         req.flash('info', 'No changes were made to the admin account.');
+      } else {
+         req.flash('error', 'Failed to find the admin account to update.');
+      }
+      res.redirect('/manage-accounts');
+    }
   } catch (error) {
-    console.error('Error updating admin account:', error);
-    res.status(500).send('An error occurred while updating the account');
+    console.error('Error updating/demoting admin account:', error);
+    req.flash('error', 'An error occurred while updating/demoting the account.');
+    res.redirect('/manage-accounts');
   }
 });
 
@@ -3236,28 +3318,47 @@ app.post('/admin/user-profiles/:id/update', requireAdmin, upload.single('profile
 // Route to delete admin account
 app.get('/account/admin/delete/:id', requireAdmin, async (req, res) => {
   try {
-    // Convert string ID to ObjectId
     const ObjectId = require('mongodb').ObjectId;
-    const adminId = new ObjectId(req.params.id);
-    
-    // Check if this is the last admin account
-    const adminCount = await db.collection('admins').countDocuments();
-    if (adminCount <= 1) {
-      return res.status(400).send('Cannot delete the last admin account');
+    let adminId;
+    try {
+      adminId = new ObjectId(req.params.id);
+    } catch (e) {
+      req.flash('error', 'Invalid admin ID format.');
+      return res.redirect('/manage-accounts');
     }
-    
+
+    // Check if this is the last admin account (checking both DBs for safety, though one should suffice if synced)
+    const adminDbCount = await db.collection('admins').countDocuments();
+    // const robolutionDbAdminCount = await robolutionDb.collection('admins').countDocuments(); 
+    // It's safer to rely on the primary admin DB count for this rule.
+    if (adminDbCount <= 1) {
+      req.flash('error', 'Cannot delete the last admin account.');
+      return res.redirect('/manage-accounts');
+    }
+
     // Check if the admin is trying to delete their own account
     if (req.session.user.id === req.params.id) {
-      return res.status(400).send('Cannot delete your own account while logged in');
+      req.flash('error', 'You cannot delete your own admin account directly. Another superadmin must do this.');
+      return res.redirect('/manage-accounts');
     }
+
+    // Delete the admin account from adminDB
+    const adminDbResult = await db.collection('admins').deleteOne({ _id: adminId });
     
-    // Delete the admin account
-    await db.collection('admins').deleteOne({ _id: adminId });
+    // Also delete from robolutionDb admins collection for consistency
+    const robolutionDbResult = await robolutionDb.collection('admins').deleteOne({ _id: adminId });
+
+    if (adminDbResult.deletedCount > 0 || robolutionDbResult.deletedCount > 0) {
+      req.flash('success', 'Admin account deleted successfully from all records.');
+    } else {
+      req.flash('error', 'Admin account not found or could not be deleted.');
+    }
     
     res.redirect('/manage-accounts');
   } catch (error) {
     console.error('Error deleting admin account:', error);
-    res.status(500).send('An error occurred while deleting the account');
+    req.flash('error', 'An error occurred while deleting the admin account.');
+    res.redirect('/manage-accounts');
   }
 });
 

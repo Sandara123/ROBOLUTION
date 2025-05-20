@@ -242,10 +242,11 @@
         <div class="form-group">
           <label for="role">Role</label>
           <select id="role" name="role" class="form-control">
+            <option value="user" <%= admin.role === 'user' ? 'selected' : '' %>>User (Demote)</option> 
             <option value="admin" <%= admin.role === 'admin' ? 'selected' : '' %>>Admin</option>
-            <option value="super_admin" <%= admin.role === 'super_admin' ? 'selected' : '' %>>Super Admin</option>
+            <option value="superadmin" <%= admin.role === 'superadmin' ? 'selected' : '' %>>Super Admin</option>
           </select>
-          <div class="form-note">Role defines the admin's permissions in the system.</div>
+          <div class="form-note">Role defines the admin's permissions. Selecting 'User' will demote this admin to a regular user account.</div>
         </div>
         
         <div class="form-group">
