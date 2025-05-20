@@ -5351,3 +5351,119 @@ app.get('/admin/user-profiles/:id', requireAdmin, async (req, res) => {
     res.status(500).send('Error fetching user profile');
   }
 });
+
+// Route to make a user an admin
+app.get('/account/user/make-admin/:id', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    console.log(`Attempting to make user with ID: ${userId} an admin.`);
+
+    // Find the user in the User collection
+    let userToPromote = null;
+    const usersCollection = robolutionDb.collection('users');
+
+    // 1. Try direct string ID lookup
+    userToPromote = await usersCollection.findOne({ _id: userId });
+    if (userToPromote) console.log('Found user by direct string ID in users collection.');
+
+    // 2. Try ObjectID lookup if string ID failed
+    if (!userToPromote && userId.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        userToPromote = await usersCollection.findOne({ _id: new ObjectId(userId) });
+        if (userToPromote) console.log('Found user by ObjectId in users collection.');
+      } catch (err) {
+        console.error('Error converting userId to ObjectId for users collection:', err.message);
+      }
+    }
+
+    if (!userToPromote) {
+      req.flash('error', 'User not found or ID is invalid.');
+      return res.redirect('/manage-accounts');
+    }
+
+    console.log(`User found: ${userToPromote.username}. Preparing to promote.`);
+
+    // Check if admin with the same username already exists in adminDB
+    const adminDbAdminsCollection = db.collection('admins');
+    const existingAdmin = await adminDbAdminsCollection.findOne({ username: userToPromote.username });
+
+    if (existingAdmin) {
+      console.log(`Admin with username ${userToPromote.username} already exists.`);
+      req.flash('error', `An admin with username '${userToPromote.username}' already exists.`);
+      return res.redirect('/manage-accounts');
+    }
+
+    // Prepare admin data
+    const adminData = {
+      username: userToPromote.username,
+      password: userToPromote.password, // Copy hashed password
+      role: 'admin', // Assign admin role
+      twoFactorSecret: userToPromote.twoFactorSecret,
+      twoFactorEnabled: userToPromote.twoFactorEnabled,
+      backupCodes: userToPromote.backupCodes,
+      needs2FASetup: userToPromote.needs2FASetup || false,
+      createdAt: userToPromote.createdAt || new Date(),
+      // Preserve original _id if possible, or let MongoDB generate a new one
+      // _id: userToPromote._id 
+    };
+    
+    // If the original user ID is an ObjectId, try to use it for the new admin record
+    // Otherwise, let MongoDB generate a new _id for the admin record.
+    if (userToPromote._id && (userToPromote._id.constructor.name === 'ObjectID' || userToPromote._id.constructor.name === 'ObjectId')) {
+        adminData._id = userToPromote._id;
+    } else if (typeof userToPromote._id === 'string' && userToPromote._id.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
+            const ObjectId = require('mongodb').ObjectId;
+            adminData._id = new ObjectId(userToPromote._id);
+        } catch (e) {
+            console.log('Could not convert user _id to ObjectId for admin record, will let MongoDB generate new _id');
+        }
+    }
+
+    console.log('Admin data prepared:', adminData);
+
+    // Insert into adminDB admins collection
+    await adminDbAdminsCollection.insertOne(adminData);
+    console.log(`User ${userToPromote.username} added to adminDB admins collection.`);
+
+    // Also add/update in robolutionDb admins collection for redundancy and direct query consistency
+    const robolutionDbAdminsCollection = robolutionDb.collection('admins');
+    // Use upsert to add if not exists, or update if exists (e.g., if ID was preserved)
+    await robolutionDbAdminsCollection.updateOne(
+        { _id: adminData._id || new require('mongodb').ObjectId() }, // Match by ID if it was set
+        { $set: adminData },
+        { upsert: true }
+    );
+    console.log(`User ${userToPromote.username} upserted into robolutionDb admins collection.`);
+
+    // Delete from the original User collection
+    // Use the original _id from userToPromote for deletion
+    let deleteResultUser;
+    if (userToPromote._id.constructor.name === 'ObjectID' || userToPromote._id.constructor.name === 'ObjectId') {
+        deleteResultUser = await usersCollection.deleteOne({ _id: userToPromote._id });
+    } else if (typeof userToPromote._id === 'string' && userToPromote._id.match(/^[0-9a-fA-F]{24}$/)){
+        deleteResultUser = await usersCollection.deleteOne({ _id: new require('mongodb').ObjectId(userToPromote._id) });
+    } else {
+        // Fallback to deleting by string id if it's not an ObjectId and doesn't look like one
+        deleteResultUser = await usersCollection.deleteOne({ _id: userToPromote._id.toString() });
+    }
+
+    if (deleteResultUser.deletedCount === 1) {
+      console.log(`User ${userToPromote.username} deleted from users collection.`);
+      req.flash('success', `User '${userToPromote.username}' has been successfully promoted to admin.`);
+    } else {
+      console.log(`Failed to delete user ${userToPromote.username} from users collection. User might have already been deleted or ID mismatch.`);
+      // Even if deletion fails, the admin record was created, so it's a partial success.
+      // Log this as an inconsistency.
+      req.flash('warning', `User '${userToPromote.username}' promoted to admin, but there was an issue removing the original user record. Please check manually.`);
+    }
+
+    res.redirect('/manage-accounts');
+
+  } catch (error) {
+    console.error('Error promoting user to admin:', error);
+    req.flash('error', 'An error occurred while promoting the user to admin.');
+    res.redirect('/manage-accounts');
+  }
+});

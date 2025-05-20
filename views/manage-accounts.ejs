@@ -369,6 +369,7 @@
                     <a href="/account/user/edit/<%= userAccount._id %>" class="action-button edit">Edit</a>
                     <button onclick="showChangePasswordModal('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button change-pwd">Change Password</button>
                     <button onclick="confirmResetPassword('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #ff9800;">Reset Password</button>
+                    <button onclick="confirmMakeAdmin('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #28a745;">Make Admin</button>
                     <button onclick="confirmDeleteUser('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button delete">Delete</button>
                   </td>
                 </tr>
@@ -416,6 +417,13 @@
   function confirmResetPassword(id, username) {
     if (confirm(`Are you sure you want to reset the password for "${username}"? The user will be required to set up 2FA after login.`)) {
       window.location.href = `/account/user/reset-password/${id}`;
+    }
+  }
+  
+  // Function to confirm making a user an admin
+  function confirmMakeAdmin(id, username) {
+    if (confirm(`Are you sure you want to make "${username}" an admin? This will move their account to the admin section and grant them admin privileges.`)) {
+      window.location.href = `/account/user/make-admin/${id}`;
     }
   }
   
