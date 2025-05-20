@@ -4297,28 +4297,39 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
     
     // Helper function to convert string IDs to ObjectIds consistently
     const processDocument = (doc) => {
-      if (doc === null || typeof doc !== 'object') {
-        return doc;
+      if (doc === null || typeof doc !== 'object' || doc instanceof ObjectId || doc instanceof Date) {
+        return doc; // Return BSON types, null, or non-objects as is
       }
-
+    
       const newDoc = Array.isArray(doc) ? [] : {};
-
+    
       for (const key in doc) {
         if (Object.prototype.hasOwnProperty.call(doc, key)) {
           const value = doc[key];
-
-          if (typeof value === 'string' && /^[0-9a-fA-F]{24}$/.test(value)) {
+    
+          if (value instanceof ObjectId || value instanceof Date) {
+            newDoc[key] = value; // Preserve existing ObjectId or Date instances
+          } else if (typeof value === 'string' && key === '_id' && /^[0-9a-fA-F]{24}$/.test(value)) {
+            // If it's a string _id that looks like an ObjectId, try to convert it
             try {
               newDoc[key] = new ObjectId(value);
             } catch (e) {
-              console.log(`Could not convert field ${key} value ${value} to ObjectId: ${e.message}`);
-              newDoc[key] = value; // Keep original if conversion fails
+              console.warn(`Could not convert string _id "${value}" to ObjectId: ${e.message}. Keeping as string.`);
+              newDoc[key] = value; // Keep as string if conversion fails
             }
           } else if (value && typeof value === 'object' && value.$date && typeof value.$date === 'string') {
-            newDoc[key] = new Date(value.$date);
+            // Handle BSON $date representation from JSON
+            try {
+              newDoc[key] = new Date(value.$date);
+            } catch (e) {
+              console.warn(`Could not convert $date "${value.$date}" to Date: ${e.message}. Keeping original structure.`);
+              newDoc[key] = value;
+            }
           } else if (value && typeof value === 'object') {
-            newDoc[key] = processDocument(value); // Recurse for nested objects/arrays
+            // Recurse for nested plain objects/arrays
+            newDoc[key] = processDocument(value);
           } else {
+            // Primitives and other types
             newDoc[key] = value;
           }
         }
