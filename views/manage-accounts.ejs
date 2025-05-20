@@ -15,27 +15,6 @@
       background-image: none;
     }
     
-    <% if (locals.dashboard) { %>
-    /* Dashboard specific styles */
-    body {
-      padding: 0;
-      margin: 0;
-    }
-    
-    .content-wrapper {
-      padding-top: 0;
-    }
-    
-    /* Hide elements when in dashboard */
-    header, footer, .back-to-top {
-      display: none !important;
-    }
-    
-    .accounts-container {
-      padding-top: 20px !important;
-    }
-    <% } %>
-    
     .accounts-container {
       max-width: 1200px;
       margin: 0 auto;
@@ -246,10 +225,34 @@
       }
     }
   </style>
+  
+  <% if (locals.dashboard) { %>
+  <style>
+    /* Dashboard specific styles */
+    body {
+      padding: 0;
+      margin: 0;
+    }
+    
+    .content-wrapper {
+      padding-top: 0;
+    }
+    
+    /* Hide elements when in dashboard */
+    header, footer, .back-to-top {
+      display: none !important;
+    }
+    
+    .accounts-container {
+      padding-top: 20px !important;
+    }
+  </style>
+  <% } %>
 </head>
 <body>
 <div class="content-wrapper">
 
+  <% if (!locals.dashboard) { %>
   <header>
     <div class="header-content">
       <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
@@ -268,6 +271,7 @@
       </nav>
     </div>
   </header>
+  <% } %>
 
   <main>
     <div class="accounts-container">

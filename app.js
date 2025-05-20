@@ -705,7 +705,7 @@ app.use(async (req, res, next) => {
 });
 
 // Create post form route
-app.get('/create-post', requireAuth, async (req, res) => {
+app.get('/create-post', requireAdmin, async (req, res) => {
   try {
     // Check if the user is an admin
     if (!req.session.user || !req.session.user.isAdmin) {
@@ -767,7 +767,7 @@ app.get('/', async (req, res) => {
 });
 
 // Admin index page with direct MongoDB access
-app.get('/index', requireAuth, async (req, res) => {
+app.get('/index', requireAdmin, async (req, res) => {
   try {
     // Check if the user is an admin
     if (!req.session.user || !req.session.user.isAdmin) {

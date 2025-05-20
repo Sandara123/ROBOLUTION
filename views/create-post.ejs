@@ -15,7 +15,201 @@
       background-image: none;
     }
     
-    <% if (locals.dashboard) { %>
+    /* Add dropdown styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+  
+    .dropdown-btn {
+      cursor: pointer;
+    }
+  
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #f9f9f9;
+      min-width: 160px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+    }
+  
+    .dropdown-content a {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      text-align: left;
+    }
+  
+    .dropdown-content a:hover {
+      background-color: #f1f1f1;
+    }
+  
+    .dropdown:hover .dropdown-content {
+      display: block;
+    }
+  
+    /* Form styling */
+    .main-create {
+      padding: 120px 20px 40px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  
+    .page-title {
+      color: #00008b;
+      margin-bottom: 30px;
+      text-align: center;
+      font-size: 2.2rem;
+    }
+  
+    .create-post-form {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+    }
+  
+    .form-group {
+      margin-bottom: 20px;
+    }
+  
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #444;
+    }
+  
+    .form-control {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+  
+    .form-control:focus {
+      border-color: #00008b;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 0, 139, 0.1);
+    }
+  
+    textarea.form-control {
+      min-height: 150px;
+      resize: vertical;
+    }
+  
+    .btn-submit {
+      background-color: #00008b;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: background-color 0.3s;
+      margin-top: 10px;
+    }
+  
+    .btn-submit:hover {
+      background-color: #000066;
+    }
+  
+    .preview-container {
+      margin-top: 15px;
+    }
+  
+    .image-preview {
+      max-width: 100%;
+      max-height: 300px;
+      display: none;
+      margin-top: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+  
+    /* Checkbox styling */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      gap: 10px;
+    }
+  
+    .checkbox-group label {
+      margin-bottom: 0;
+      font-weight: normal;
+    }
+  
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      margin-right: 10px;
+    }
+  
+    /* Region select styling */
+    .select-group {
+      margin-bottom: 20px;
+    }
+  
+    .select-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #444;
+    }
+  
+    .select-control {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+      background-color: white;
+    }
+  
+    .select-control:focus {
+      border-color: #00008b;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0, 0, 139, 0.1);
+    }
+  
+    .date-input-container {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+  
+    /* Style for the hidden element if checkbox is checked */
+    #customDateInput {
+      margin-top: 15px;
+    }
+  
+    @media (max-width: 768px) {
+      .main-create {
+        padding-top: 80px;
+      }
+  
+      .page-title {
+        font-size: 1.8rem;
+      }
+  
+      .create-post-form {
+        padding: 20px;
+      }
+  
+      .btn-submit {
+        width: 100%;
+      }
+    }
+  </style>
+  
+  <% if (locals.dashboard) { %>
+  <style>
     /* Dashboard specific styles */
     body {
       padding: 0;
@@ -34,86 +228,8 @@
     main {
       padding-top: 20px !important;
     }
-    <% } %>
-    
-    /* Add dropdown styles */
-    .dropdown {
-      position: relative;
-      display: inline-block;
-    }
-    
-    .dropdown-btn {
-      cursor: pointer;
-    }
-    
-    .dropdown-content {
-      display: none;
-      position: absolute;
-      background-color: #f9f9f9;
-      min-width: 220px;
-      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-      z-index: 1;
-      border-radius: 4px;
-      padding: 8px 0;
-    }
-    
-    .dropdown-content a {
-      color: black;
-      padding: 12px 16px;
-      text-decoration: none;
-      display: block;
-      text-align: left;
-      transition: background-color 0.2s ease;
-    }
-    
-    .dropdown-content a:hover {
-      background-color: #f1f1f1;
-    }
-    
-    .dropdown:hover .dropdown-content {
-      display: block;
-    }
-
-    /* Existing form styles */
-    .form-group {
-      margin-bottom: 15px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
-      color: #001f5c;
-    }
-    
-    .form-group select {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ccd7ea;
-      border-radius: 4px;
-      background-color: #fff;
-    }
-    
-    .form-group select:focus {
-      border-color: #003399;
-      outline: none;
-      box-shadow: 0 0 3px rgba(0, 51, 153, 0.3);
-    }
-    
-    .region-section {
-      background-color: #f5f9ff;
-      padding: 15px;
-      border-radius: 5px;
-      margin-bottom: 15px;
-      border-left: 3px solid #003399;
-    }
-    
-    .region-section h3 {
-      margin-top: 0;
-      color: #001f5c;
-      margin-bottom: 10px;
-    }
   </style>
+  <% } %>
 </head>
 <body>
 <div class="content-wrapper">
