@@ -667,6 +667,14 @@ const requireAdmin = (req, res, next) => {
     validateAdminUser();
 };
 
+// Middleware to require login for regular users
+const requireLogin = (req, res, next) => {
+    if (!req.session.user || !req.session.user.id) {
+        return res.redirect('/login?redirect=' + encodeURIComponent(req.originalUrl));
+    }
+    next();
+};
+
 app.use('/images', express.static('public/images', {
   setHeaders: (res, path) => {
     if (path.endsWith('.webm')) {
@@ -1361,12 +1369,12 @@ app.post('/posts/:id/delete-image', async (req, res) => {
 
 // Update login route to include 2FA handling and direct MongoDB access
 app.post('/login', async (req, res) => {
-  try {
-    const { username, password, token, redirect } = req.body;
-    
-    console.log('Login attempt:', { username, hasToken: !!token });
-    
-    // DIRECT DB ACCESS: First check admin collection
+    try {
+        const { username, password, token, redirect } = req.body;
+        
+        console.log('Login attempt:', { username, hasToken: !!token });
+        
+        // DIRECT DB ACCESS: First check admin collection
     const adminCollection = db.collection('admins');
     let user = await adminCollection.findOne({ username });
     
@@ -1383,79 +1391,79 @@ app.post('/login', async (req, res) => {
     }
     
     if (!user) {
-      console.log('User not found:', username);
-      return res.json({ success: false, message: 'Invalid username or password' });
-    }
-    
+                console.log('User not found:', username);
+                return res.json({ success: false, message: 'Invalid username or password' });
+            }
+            
     // Check if password matches
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log('Invalid password for user:', username);
-      return res.json({ success: false, message: 'Invalid username or password' });
-    }
-    
-    // Check if this user needs to set up 2FA after password reset
+                console.log('Invalid password for user:', username);
+                return res.json({ success: false, message: 'Invalid username or password' });
+            }
+            
+            // Check if this user needs to set up 2FA after password reset
     if (user.needs2FASetup) {
-      return res.json({ 
-        success: false, 
-        requireTwoFactor: true,
-        needs2FASetup: true,
-        message: 'Your account has been reset. Please set up two-factor authentication.',
-        username: username,
-        password: password
-      });
-    }
-    
-    // Check if 2FA is enabled for this user
+                return res.json({ 
+                    success: false, 
+                    requireTwoFactor: true,
+                    needs2FASetup: true,
+                    message: 'Your account has been reset. Please set up two-factor authentication.',
+                    username: username,
+                    password: password
+                });
+            }
+            
+            // Check if 2FA is enabled for this user
     if (user.twoFactorEnabled) {
-      // If no token provided but 2FA is enabled, request token
-      if (!token) {
-        return res.json({ 
-          success: false, 
-          requireTwoFactor: true,
-          needs2FASetup: false,
-          message: 'Please enter your two-factor authentication code'
-        });
-      }
-      
-      // Verify the token
+                // If no token provided but 2FA is enabled, request token
+                if (!token) {
+                    return res.json({ 
+                        success: false, 
+                        requireTwoFactor: true, 
+                        needs2FASetup: false,
+                        message: 'Please enter your two-factor authentication code'
+                    });
+                }
+                
+                // Verify the token
       const isValidToken = verifyTwoFactorToken(user, token);
       if (!isValidToken) {
-        return res.json({ 
-          success: false, 
-          requireTwoFactor: true,
-          needs2FASetup: false,
-          message: 'Invalid two-factor code. Please try again.'
-        });
+                        return res.json({ 
+                            success: false, 
+                            requireTwoFactor: true,
+                            needs2FASetup: false, 
+                            message: 'Invalid two-factor code. Please try again.'
+                        });
       }
     }
     
     // Create session with admin flag based on role
-    req.session.user = {
+            req.session.user = {
       id: user._id,
       username: user.username,
       isAdmin: user.role === 'admin' || user.role === 'superadmin' || user.username === 'kris',
       role: user.role || (user.isAdmin ? 'admin' : 'user')
-    };
-    
-    // Force session save and wait for it
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) {
-          console.error('Session save error:', err);
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-    
+            };
+            
+            // Force session save and wait for it
+            await new Promise((resolve, reject) => {
+                req.session.save((err) => {
+                    if (err) {
+                        console.error('Session save error:', err);
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
+            
     console.log('Login successful - Session saved:', {
-      sessionID: req.sessionID,
-      user: req.session.user,
-      cookie: req.session.cookie
-    });
-    
+                sessionID: req.sessionID,
+                user: req.session.user,
+                cookie: req.session.cookie
+            });
+            
     // Determine redirect URL based on user role
     let redirectUrl = redirect || '/user-landing'; // Default for regular users
     
@@ -1463,18 +1471,18 @@ app.post('/login', async (req, res) => {
     if (req.session.user.isAdmin) {
       redirectUrl = '/admin-dashboard';
     }
-    
-    return res.json({ 
-      success: true,
-      redirectUrl: redirectUrl,
+            
+            return res.json({ 
+                success: true,
+                redirectUrl: redirectUrl,
       role: req.session.user.role || 'user',
       message: 'Login successful! Welcome back, ' + user.username,
-      setLocalStorage: true  // Signal client to set localStorage
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.json({ success: false, message: 'An error occurred during login. Please try again.' });
-  }
+                setLocalStorage: true  // Signal client to set localStorage
+            });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.json({ success: false, message: 'An error occurred during login. Please try again.' });
+    }
 });
 
 // Improved 2FA verification function
@@ -1934,6 +1942,123 @@ app.get('/logout', (req, res) => {
   });
 });
 
+// ==== USER PROFILE ROUTES ==== 
+
+// GET route to display user profile page
+app.get('/profile', requireLogin, async (req, res) => {
+    try {
+        const user = await User.findById(req.session.user.id);
+        if (!user) {
+            req.flash('error', 'User not found.');
+            return res.redirect('/login');
+        }
+
+        const registrations = await Registration.find({ userId: req.session.user.id }).sort({ registeredAt: -1 });
+
+        let age = null;
+        if (user.birthDate && user.birthDate.month && user.birthDate.year) {
+            const birthDate = new Date(user.birthDate.year, user.birthDate.month - 1); // Month is 0-indexed
+            const today = new Date();
+            age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+        }
+
+        res.render('UserViews/profile', {
+            user: user.toObject(), // Convert to plain object for template
+            profilePicture: user.profilePicture || '/images/default-profile.jpg',
+            age,
+            registrations,
+            uniqueRegions: res.locals.uniqueRegions || []
+        });
+    } catch (error) {
+        console.error('Error fetching user profile:', error);
+        req.flash('error', 'Error loading profile. Please try again.');
+        res.redirect('/user-landing');
+    }
+});
+
+// POST route to update user profile information
+app.post('/profile/update', requireLogin, upload.single('profilePicture'), async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { birthMonth, birthYear, school, address } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Update basic info
+        if (birthMonth && birthYear) {
+            user.birthDate = { month: parseInt(birthMonth), year: parseInt(birthYear) };
+        }
+        user.school = school || user.school;
+        user.address = address || user.address;
+
+        // Handle profile picture upload
+        if (req.file) {
+            try {
+                const filePath = req.file.path;
+                const cloudinaryResult = await uploadToCloudinary(filePath, 'robolution/profile_pictures');
+                user.profilePicture = cloudinaryResult;
+            } catch (uploadError) {
+                console.error('Cloudinary upload error:', uploadError);
+                // Optionally, decide if this is a hard fail or if profile updates without image change
+                return res.status(500).json({ success: false, message: 'Error uploading profile picture.' });
+            }
+        }
+
+        await user.save();
+        // Update session user details if necessary, e.g., if fullName or other display info changes
+        // req.session.user.fullName = user.fullName; (if fullName were editable here)
+
+        res.json({ success: true, message: 'Profile updated successfully!', profilePicture: user.profilePicture });
+
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ success: false, message: 'An error occurred while updating profile.' });
+    }
+});
+
+// POST route to change user password
+app.post('/profile/change-password', requireLogin, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ success: false, message: 'New passwords do not match.' });
+        }
+        
+        if (newPassword.length < 8) { // Basic validation, align with signup
+            return res.status(400).json({ success: false, message: 'New password must be at least 8 characters long.' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Incorrect current password.' });
+        }
+
+        const saltRounds = 10;
+        user.password = await bcrypt.hash(newPassword, saltRounds);
+        await user.save();
+
+        res.json({ success: true, message: 'Password changed successfully!' });
+
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(500).json({ success: false, message: 'An error occurred while changing password.' });
+    }
+});
+
 // Update routes for 2FA setup and verification
 app.get('/setup-2fa', async (req, res) => {
     // Check if user is logged in and is an admin
@@ -2154,6 +2279,19 @@ app.get('/post/:id', async (req, res) => {
 // Health check route for Render
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
+});
+
+// Route for admin dashboard
+app.get('/admin-dashboard', requireAdmin, (req, res) => {
+    // Check if the user is an admin (already handled by requireAdmin, but good for clarity)
+    if (!req.session.user || !req.session.user.isAdmin) {
+        return res.redirect('/login');
+    }
+    res.render('admin-dashboard', { 
+        user: req.session.user,
+        // Pass any other necessary data for the dashboard
+        uniqueRegions: res.locals.uniqueRegions || [] 
+    });
 });
 
 // API endpoint to check username availability for users
