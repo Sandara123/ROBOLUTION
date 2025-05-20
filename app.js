@@ -4249,10 +4249,11 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
     
     // Connect to the database to find the backup record
     const client = await MongoClient.connect(process.env.MONGODB_URI);
-    const db = client.db('robolution');
+    const localRobolutionDb = client.db('robolution'); // Use this for all robolution db operations in restore
+    const adminDbForRestore = client.db('adminDB'); // Can use a specific client for adminDB too if preferred, or global db
     
-    // Find the backup record
-    const backup = await db.collection('database_backups').findOne({ backupId });
+    // Find the backup record in robolutionDb using local client
+    const backup = await localRobolutionDb.collection('database_backups').findOne({ backupId });
     
     if (!backup) {
       req.flash('error', 'Backup not found.');
@@ -4271,8 +4272,8 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
 
     // First, backup current users collection to preserve active user accounts
     console.log('Backing up current user accounts before restoration...');
-    const currentUsers = await db.collection('users').find({}).toArray();
-    const currentAdmins = await db.collection('admins').find({}).toArray();
+    const currentUsers = await localRobolutionDb.collection('users').find({}).toArray();
+    const currentAdmins = await localRobolutionDb.collection('admins').find({}).toArray();
     
     // Store current session user for special handling
     const currentAdminUser = req.session.user;
@@ -4347,42 +4348,44 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
         if (collectionName === 'users') {
           console.log('[Restore] Merging users with preserved accounts...');
           
-          // Process documents to convert string IDs to ObjectIds where needed
-          const processedData = collectionData.map(doc => { // Added logging for posts
-            const processed = processDocument(doc);
-            if (collectionName === 'posts' && processed.imageUrl) {
-              console.log(`[Restore Post Detail] Original imageUrl from backup for post "${processed.title}": ${doc.imageUrl}`);
-              console.log(`[Restore Post Detail] Processed imageUrl for post "${processed.title}": ${processed.imageUrl}`);
-            }
-            return processed;
-          });
+          const processedBackupUsers = collectionData.map(doc => processDocument(doc));
           
-          // Drop the existing collection from robolutionDb
           try {
-            await robolutionDb.collection(collectionName).drop(); // Use robolutionDb here
-            console.log(`[Restore] Dropped existing users collection from robolutionDb: ${collectionName}`);
+            await localRobolutionDb.collection(collectionName).drop();
+            console.log(`[Restore] Dropped existing users collection from localRobolutionDb: ${collectionName}`);
           } catch (dropError) {
-            // Collection might not exist, which is okay
-            console.log(`[Restore] robolutionDb users collection ${collectionName} might not exist, continuing`);
+            console.log(`[Restore] localRobolutionDb users collection ${collectionName} might not exist, continuing: ${dropError.message}`);
           }
           
-          // Merge backup users with current users (currentUsers are from robolutionDb.users)
-          const mergedUsers = [];
-          
-          processedData.forEach(backupUser => {
-            if (!backupUser.username || !existingUsersMap[backupUser.username]) {
-              mergedUsers.push(backupUser);
-            }
+          const finalUsersMap = new Map();
+
+          // Step 1: Add all live users (from localRobolutionDb users) to the map.
+          Object.values(existingUsersMap).forEach(liveUser => {
+              const processedLiveUser = processDocument(liveUser);
+              if (processedLiveUser._id) { 
+                  finalUsersMap.set(processedLiveUser._id.toString(), processedLiveUser);
+              }
           });
-          
-          Object.values(existingUsersMap).forEach(currentUser => {
-            mergedUsers.push(processDocument(currentUser));
+
+          // Step 2: Add users from backup ONLY if their username isn't already taken by a live user.
+          processedBackupUsers.forEach(backupUser => {
+              let liveUserWithSameUsernameExists = false;
+              for (const liveUserInMap of finalUsersMap.values()) {
+                  if (liveUserInMap.username === backupUser.username) {
+                      liveUserWithSameUsernameExists = true;
+                      break;
+                  }
+              }
+              if (!liveUserWithSameUsernameExists && backupUser._id) { 
+                  finalUsersMap.set(backupUser._id.toString(), backupUser);
+              }
           });
-          
-          // Insert the merged users into robolutionDb.users
-          if (mergedUsers.length > 0) {
-            await robolutionDb.collection(collectionName).insertMany(mergedUsers); // Use robolutionDb here
-            console.log(`[Restore] Restored ${mergedUsers.length} users to robolutionDb.users with ${Object.keys(existingUsersMap).length} preserved accounts`);
+
+          const finalMergedUsers = Array.from(finalUsersMap.values());
+                    
+          if (finalMergedUsers.length > 0) {
+            await localRobolutionDb.collection(collectionName).insertMany(finalMergedUsers);
+            console.log(`[Restore] Restored ${finalMergedUsers.length} users to localRobolutionDb.users.`);
           }
         } 
         // Special handling for admins collection
@@ -4390,86 +4393,83 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
           console.log('[Restore] Merging admins with preserved accounts (from adminDB)...');
           
           const processedBackupAdmins = collectionData.map(doc => processDocument(doc));
+          const finalAdminsMap = new Map();
+
+          // Step 1: Add all live admins (from global adminDB) to the map.
+          Object.values(existingAdminsMap).forEach(liveAdmin => {
+              const processedLiveAdmin = processDocument(liveAdmin);
+              if (processedLiveAdmin._id) { 
+                  finalAdminsMap.set(processedLiveAdmin._id.toString(), processedLiveAdmin);
+              }
+          });
+
+          // Step 2: Add admins from backup ONLY if their username isn't already taken by a live admin.
+          processedBackupAdmins.forEach(backupAdmin => {
+              let liveAdminWithSameUsernameExists = false;
+              for (const liveAdminInMap of finalAdminsMap.values()) {
+                  if (liveAdminInMap.username === backupAdmin.username) {
+                      liveAdminWithSameUsernameExists = true;
+                      break;
+                  }
+              }
+              if (!liveAdminWithSameUsernameExists && backupAdmin._id) { 
+                  finalAdminsMap.set(backupAdmin._id.toString(), backupAdmin);
+              }
+          });
+
+          const finalMergedAdmins = Array.from(finalAdminsMap.values());
           
-          // Drop the existing admins collection from adminDB (global db)
+          // Restore to primary adminDB (global db instance)
           try {
-            await db.collection(collectionName).drop(); // global db (adminDB)
+            await db.collection(collectionName).drop(); 
             console.log(`[Restore] Dropped existing admins collection from adminDB: ${collectionName}`);
           } catch (dropError) {
             console.log(`[Restore] adminDB admins collection ${collectionName} might not exist, continuing: ${dropError.message}`);
           }
-
-          // Drop existing admins collection from robolutionDb (replica)
-          if (robolutionDb) {
-            try {
-                await robolutionDb.collection(collectionName).drop();
-                console.log(`[Restore] Dropped existing admins collection from robolutionDb: ${collectionName}`);
-            } catch (dropError) {
-                console.log(`[Restore] robolutionDb admins collection ${collectionName} might not exist or drop failed, continuing: ${dropError.message}`);
-            }
+          if (finalMergedAdmins.length > 0) {
+            await db.collection(collectionName).insertMany(finalMergedAdmins);
+            console.log(`[Restore] Restored ${finalMergedAdmins.length} admins to adminDB.admins.`);
           }
           
-          // existingAdminsMap is already populated from global db (adminDB) before the loop
-          const mergedAdminsData = [];
-          
-          processedBackupAdmins.forEach(backupAdmin => {
-            if (!backupAdmin.username || !existingAdminsMap[backupAdmin.username]) {
-              mergedAdminsData.push(backupAdmin); // Add new admins from backup
+          // Sync to robolutionDb.admins (using localRobolutionDb client for this restore operation)
+          if (localRobolutionDb) { 
+            try {
+                await localRobolutionDb.collection(collectionName).drop();
+                console.log(`[Restore] Dropped existing admins collection from localRobolutionDb: ${collectionName}`);
+            } catch (dropError) {
+                console.log(`[Restore] localRobolutionDb admins collection ${collectionName} might not exist or drop failed, continuing: ${dropError.message}`);
             }
-          });
-          
-          Object.values(existingAdminsMap).forEach(currentAdminFromAdminDB => {
-            mergedAdminsData.push(processDocument(currentAdminFromAdminDB)); // Add preserved admins from adminDB
-          });
-          
-          // Insert the merged admins into adminDB (global db)
-          if (mergedAdminsData.length > 0) {
-            await db.collection(collectionName).insertMany(mergedAdminsData); // global db (adminDB)
-            console.log(`[Restore] Restored ${mergedAdminsData.length} admins to adminDB.admins. Preserved from adminDB: ${Object.keys(existingAdminsMap).length}`);
-            
-            // Also insert/sync to robolutionDb.admins
-            if (robolutionDb) {
+            if (finalMergedAdmins.length > 0) {
                 try {
-                    // robolutionDb.admins should mirror adminDB.admins
-                    await robolutionDb.collection(collectionName).insertMany(mergedAdminsData);
-                    console.log(`[Restore] Synced ${mergedAdminsData.length} admins to robolutionDb.admins`);
+                    await localRobolutionDb.collection(collectionName).insertMany(finalMergedAdmins);
+                    console.log(`[Restore] Synced ${finalMergedAdmins.length} admins to localRobolutionDb.admins`);
                 } catch (syncError) {
-                    console.error(`[Restore] Error syncing admins to robolutionDb.admins: ${syncError.message}`);
+                    console.error(`[Restore] Error syncing admins to localRobolutionDb.admins: ${syncError.message}`);
                 }
             }
           } else {
-            console.log('[Restore] No admin accounts to insert after merge.');
+            console.log('[Restore] localRobolutionDb not available for syncing admins collection.');
           }
         }
         else {
-          // Regular handling for other collections
-          console.log(`[Restore] Performing regular restore for collection: ${collectionName}`); // Added log
+          // Regular handling for other collections, using localRobolutionDb for robolution collections
+          console.log(`[Restore] Performing regular restore for collection: ${collectionName}`);
           
-          // Drop the existing collection to ensure clean restore
           try {
-            await db.collection(collectionName).drop();
-            console.log(`[Restore] Dropped existing collection: ${collectionName}`);
+            await localRobolutionDb.collection(collectionName).drop();
+            console.log(`[Restore] Dropped existing collection ${collectionName} from localRobolutionDb`);
           } catch (dropError) {
-            console.log(`[Restore] Collection ${collectionName} might not exist or drop failed (which can be OK): ${dropError.message}`);
+            console.log(`[Restore] Collection ${collectionName} in localRobolutionDb might not exist or drop failed: ${dropError.message}`);
           }
           
-          // Process documents with consistent ObjectID handling
-          const processedData = collectionData.map(doc => {
-            const processed = processDocument(doc);
-            if (collectionName === 'posts' && doc.imageUrl) { // Check original doc for imageUrl
-              console.log(`[Restore Post Detail] Original imageUrl from backup for post "${doc.title}": ${doc.imageUrl}`);
-              console.log(`[Restore Post Detail] Processed imageUrl for post "${processed.title}": ${processed.imageUrl}`);
-            }
-            return processed;
-          });
-          
-          // Insert the backup data
+          const processedData = collectionData.map(doc => processDocument(doc));
+                    
           if (processedData.length > 0) {
-            console.log(`[Restore] Attempting to insert ${processedData.length} documents into ${collectionName}. First doc: ${JSON.stringify(processedData[0])}`); // Added log
-            await db.collection(collectionName).insertMany(processedData);
-            console.log(`[Restore] Restored ${processedData.length} documents to ${collectionName}`);
+            console.log(`[Restore] Attempting to insert ${processedData.length} documents into ${collectionName} in localRobolutionDb.`);
+            await localRobolutionDb.collection(collectionName).insertMany(processedData);
+            console.log(`[Restore] Restored ${processedData.length} documents to ${collectionName} in localRobolutionDb`);
           } else {
-            console.log(`[Restore] No documents to insert for ${collectionName}.`); // Added log
+            console.log(`[Restore] No documents to insert for ${collectionName} into localRobolutionDb.`);
           }
         }
       } catch (fileError) {
@@ -4517,8 +4517,9 @@ app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
       console.log('Admin session preserved after restore');
     }
     
-    // Close the client
+    // Close the local client used for this restore operation
     await client.close();
+    console.log('[Restore] Local MongoDB client for restore operation closed.');
     
     // Add a message about potentially affected user sessions
     req.flash('success', `Database successfully restored from backup: ${backupId}. Active user sessions may need to log in again.`);
