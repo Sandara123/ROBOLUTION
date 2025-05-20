@@ -622,10 +622,13 @@
           </a>
           <div class="sidebar-dropdown-menu">
             <a href="#regional-all" class="sidebar-dropdown-link" data-region="All">All Regions</a>
-            <a href="#regional-ncr" class="sidebar-dropdown-link" data-region="NCR">NCR</a>
-            <a href="#regional-car" class="sidebar-dropdown-link" data-region="CAR">CAR</a>
-            <a href="#regional-region1" class="sidebar-dropdown-link" data-region="Region I">Region I</a>
-            <!-- Add more regions as needed -->
+            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
+              <% uniqueRegions.forEach(function(region) { %>
+                <a href="#regional-<%= region.toLowerCase().replace(/\s+/g, '-') %>" class="sidebar-dropdown-link" data-region="<%= region %>"><%= region %></a>
+              <% }); %>
+            <% } else { %>
+              <!-- Optional: Message if no specific regions beyond 'All' -->
+            <% } %>
           </div>
         </div>
 
@@ -678,12 +681,6 @@
               <i class="fas fa-chevron-down"></i>
             </div>
             <div class="user-dropdown-menu">
-              <a href="/admin/profile" class="user-dropdown-item">
-                <i class="fas fa-user"></i> My Profile
-              </a>
-              <a href="/admin/settings" class="user-dropdown-item">
-                <i class="fas fa-cog"></i> Settings
-              </a>
               <a href="/logout" class="user-dropdown-item">
                 <i class="fas fa-sign-out-alt"></i> Logout
               </a>

@@ -944,12 +944,12 @@ app.get('/categories/:id', async (req, res) => {
 // Render manage categories page
 app.get('/manage-categories', requireAdmin, async (req, res) => {
   try {
+    const isDashboard = req.query.dashboard === 'true'; // Added
     const [categories, posts] = await Promise.all([
       Category.find(),
       Post.find()
     ]);
 
-    // Get unique regions from posts
     const uniqueRegions = [...new Set(posts
       .map(post => post.region)
       .filter(region => region && region !== 'All')
@@ -957,7 +957,9 @@ app.get('/manage-categories', requireAdmin, async (req, res) => {
 
     res.render('manage-categories', { 
       categories,
-      uniqueRegions
+      uniqueRegions,
+      user: req.session.user, // Added for consistency
+      dashboard: isDashboard  // Added
     });
   } catch (error) {
     console.error('Error loading manage categories:', error);
@@ -2203,13 +2205,9 @@ app.get('/regional', async (req, res) => {
 });
 
 // Admin regional page - similar to regional but with admin controls
-app.get('/admin-regional', async (req, res) => {
-  // Check if user is logged in and is an admin
-  if (!req.session.user || !req.session.user.isAdmin) {
-    return res.redirect('/login');
-  }
-  
+app.get('/admin-regional', requireAdmin, async (req, res) => { // Added requireAdmin, removed manual check
   try {
+    const isDashboard = req.query.dashboard === 'true'; // Added
     const region = req.query.region || 'All';
     const sortDirection = req.query.sort === 'asc' ? 1 : -1;
     
@@ -2227,7 +2225,9 @@ app.get('/admin-regional', async (req, res) => {
       posts, 
       region,
       uniqueRegions,
-      sort: req.query.sort || 'desc'
+      sort: req.query.sort || 'desc',
+      user: req.session.user, // Added for consistency
+      dashboard: isDashboard  // Added
     });
   } catch (error) {
     console.error('Error fetching admin regional posts:', error);
@@ -2433,6 +2433,41 @@ app.post('/delete-post/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Route for admin to view all user profiles
+app.get('/admin/user-profiles', requireAdmin, async (req, res) => {
+    try {
+        const isDashboard = req.query.dashboard === 'true';
+        const search = req.query.search || '';
+        let query = {};
+
+        if (search) {
+            query = {
+                $or: [
+                    { fullName: { $regex: search, $options: 'i' } },
+                    { username: { $regex: search, $options: 'i' } },
+                    { email: { $regex: search, $options: 'i' } },
+                    { school: { $regex: search, $options: 'i' } }
+                ]
+            };
+        }
+
+        const users = await User.find(query);
+        const posts = await Post.find({}); // For uniqueRegions
+        const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
+
+        res.render('admin-user-profiles', {
+            users,
+            search,
+            user: req.session.user, // Admin user session
+            uniqueRegions,
+            dashboard: isDashboard
+        });
+    } catch (error) {
+        console.error('Error loading admin user profiles page:', error);
+        res.status(500).send('An error occurred while loading user profiles.');
+    }
+});
+
 // Add routes for user 2FA setup
 app.get('/user/setup-2fa', async (req, res) => {
     // Check if user is logged in
@@ -2529,8 +2564,9 @@ app.post('/user/verify-2fa-setup', async (req, res) => {
 });
 
 // Route to manage registrations
-app.get('/manage-registrations', async (req, res) => {
+app.get('/manage-registrations', requireAdmin, async (req, res) => { // Added requireAdmin
   try {
+    const isDashboard = req.query.dashboard === 'true'; // Added
     // Get filter parameters
     const category = req.query.category || 'all';
     const workshop = req.query.workshop || 'all';
@@ -2590,12 +2626,14 @@ app.get('/manage-registrations', async (req, res) => {
     // Render the page with data
     res.render('manage-registrations', {
       registrations,
-      posts,
+      posts, // Used for its own filters, not directly for dashboard context header
       category,
       workshop,
       search,
       payment,
-      verified
+      verified,
+      user: req.session.user, // Added for consistency
+      dashboard: isDashboard  // Added
     });
   } catch (error) {
     console.error('Error fetching registrations:', error);
@@ -2837,8 +2875,8 @@ app.get('/manage-accounts', requireAdmin, async (req, res) => {
     const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))];
     
     res.render('manage-accounts', {
-      adminAccounts: combinedAdmins,
-      userAccounts: users,
+      admins: combinedAdmins, // Corrected from adminAccounts
+      users: users,           // Corrected from userAccounts
       uniqueRegions,
       user: req.session.user,
       dashboard: isDashboard
@@ -2848,4 +2886,44 @@ app.get('/manage-accounts', requireAdmin, async (req, res) => {
     console.error('Error loading admin dashboard:', error);
     res.status(500).send('An error occurred while loading the admin dashboard');
   }
+});
+
+// Route for admin to manage database backups
+app.get('/manage-backups', requireAdmin, async (req, res) => {
+    try {
+        // Optional: Add superadmin check if only superadmins can manage backups
+        if (req.session.user.role !== 'superadmin') {
+            req.flash('error', 'You are not authorized to manage backups.');
+            // Redirect to dashboard or another appropriate page if loaded in iframe
+            if (req.query.dashboard === 'true') {
+                 return res.status(403).send('Unauthorized. This content would normally redirect.'); // Or render a simple error view
+            }
+            return res.redirect('/admin-dashboard'); 
+        }
+
+        const isDashboard = req.query.dashboard === 'true';
+        
+        // Fetch backup data from the database_backups collection
+        let backups = [];
+        if (robolutionDb) {
+            backups = await robolutionDb.collection('database_backups')
+                                     .find({})
+                                     .sort({ timestamp: -1 }) // Sort by newest first
+                                     .toArray();
+        }
+        
+        const posts = await Post.find({}); // For uniqueRegions in header/sidebar if not in dashboard
+        const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
+
+        res.render('manage-backups', {
+            backups,
+            user: req.session.user,
+            uniqueRegions,
+            dashboard: isDashboard,
+            moment: require('moment') // Pass moment for date formatting in the template
+        });
+    } catch (error) {
+        console.error('Error loading manage backups page:', error);
+        res.status(500).send('An error occurred while loading the backups page.');
+    }
 });
