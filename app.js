@@ -706,7 +706,7 @@ app.use(async (req, res, next) => {
 
 // Create post form route
 app.get('/create-post', requireAdmin, async (req, res) => {
-  try {
+    try {
     // Check if the user is an admin
     if (!req.session.user || !req.session.user.isAdmin) {
       return res.redirect('/robolution');
@@ -719,15 +719,15 @@ app.get('/create-post', requireAdmin, async (req, res) => {
     const posts = await Post.find({});
     const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))];
     
-    res.render('create-post', { 
-      uniqueRegions, 
+        res.render('create-post', { 
+            uniqueRegions,
       user: req.session.user,
       dashboard: isDashboard
-    });
-  } catch (error) {
-    console.error('Error loading create post page:', error);
+        });
+    } catch (error) {
+        console.error('Error loading create post page:', error);
     res.status(500).send('An error occurred');
-  }
+    }
 });
 
 app.get('/login', (req, res) => {
@@ -1361,10 +1361,12 @@ app.post('/posts/:id/delete-image', async (req, res) => {
 
 // Update login route to include 2FA handling and direct MongoDB access
 app.post('/login', async (req, res) => {
-  const { username, password, token } = req.body;
-  
   try {
-    // First check if user exists in adminDB
+    const { username, password, token, redirect } = req.body;
+    
+    console.log('Login attempt:', { username, hasToken: !!token });
+    
+    // DIRECT DB ACCESS: First check admin collection
     const adminCollection = db.collection('admins');
     let user = await adminCollection.findOne({ username });
     
@@ -1381,30 +1383,54 @@ app.post('/login', async (req, res) => {
     }
     
     if (!user) {
-      return res.render('login', { error: 'Invalid username or password' });
+      console.log('User not found:', username);
+      return res.json({ success: false, message: 'Invalid username or password' });
     }
     
     // Check if password matches
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.render('login', { error: 'Invalid username or password' });
+      console.log('Invalid password for user:', username);
+      return res.json({ success: false, message: 'Invalid username or password' });
     }
     
-    // Check 2FA if enabled
+    // Check if this user needs to set up 2FA after password reset
+    if (user.needs2FASetup) {
+      return res.json({ 
+        success: false, 
+        requireTwoFactor: true,
+        needs2FASetup: true,
+        message: 'Your account has been reset. Please set up two-factor authentication.',
+        username: username,
+        password: password
+      });
+    }
+    
+    // Check if 2FA is enabled for this user
     if (user.twoFactorEnabled) {
-      // Verify 2FA token
+      // If no token provided but 2FA is enabled, request token
       if (!token) {
-        return res.render('login-2fa', { username, password });
+        return res.json({ 
+          success: false, 
+          requireTwoFactor: true,
+          needs2FASetup: false,
+          message: 'Please enter your two-factor authentication code'
+        });
       }
       
-      // Verify token
+      // Verify the token
       const isValidToken = verifyTwoFactorToken(user, token);
       if (!isValidToken) {
-        return res.render('login-2fa', { username, password, error: 'Invalid 2FA token. Please try again.' });
+        return res.json({ 
+          success: false, 
+          requireTwoFactor: true,
+          needs2FASetup: false,
+          message: 'Invalid two-factor code. Please try again.'
+        });
       }
     }
     
-    // Create session
+    // Create session with admin flag based on role
     req.session.user = {
       id: user._id,
       username: user.username,
@@ -1412,15 +1438,42 @@ app.post('/login', async (req, res) => {
       role: user.role || (user.isAdmin ? 'admin' : 'user')
     };
     
-    // Redirect based on user type (admin vs regular user)
+    // Force session save and wait for it
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+    
+    console.log('Login successful - Session saved:', {
+      sessionID: req.sessionID,
+      user: req.session.user,
+      cookie: req.session.cookie
+    });
+    
+    // Determine redirect URL based on user role
+    let redirectUrl = redirect || '/user-landing'; // Default for regular users
+    
+    // If user is admin, redirect to admin dashboard
     if (req.session.user.isAdmin) {
-      res.redirect('/admin-dashboard');
-    } else {
-      res.redirect('/blog');
+      redirectUrl = '/admin-dashboard';
     }
+    
+    return res.json({ 
+      success: true,
+      redirectUrl: redirectUrl,
+      role: req.session.user.role || 'user',
+      message: 'Login successful! Welcome back, ' + user.username,
+      setLocalStorage: true  // Signal client to set localStorage
+    });
   } catch (error) {
     console.error('Login error:', error);
-    res.render('login', { error: 'An error occurred during login' });
+    res.json({ success: false, message: 'An error occurred during login. Please try again.' });
   }
 });
 
