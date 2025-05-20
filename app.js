@@ -2797,7 +2797,8 @@ app.get('/manage-accounts', requireAdmin, async (req, res) => {
     }
     
     // Get admin accounts from adminDB with filters
-    const adminAccounts = adminRole === 'user' ? [] : await db.collection('admins').find(adminQuery).toArray();
+    let adminAccounts = adminRole === 'user' ? [] : await db.collection('admins').find(adminQuery).toArray();
+    adminAccounts = adminAccounts.map(admin => ({ ...admin, _id: admin._id.toString() }));
     
     // Build queries for users
     let userQuery = {};
@@ -2815,7 +2816,8 @@ app.get('/manage-accounts', requireAdmin, async (req, res) => {
     }
     
     // Get regular user accounts with filters
-    const regularUsers = adminRole !== '' && adminRole !== 'user' ? [] : await User.find(userQuery).sort({ createdAt: -1 });
+    let regularUsers = adminRole !== '' && adminRole !== 'user' ? [] : await User.find(userQuery).sort({ createdAt: -1 });
+    regularUsers = regularUsers.map(user => ({ ...user.toObject(), _id: user._id.toString() }));
     
     res.render('manage-accounts', {
       admins: adminAccounts,
