@@ -90,37 +90,7 @@
 </head>
 <body>
 <div class="content-wrapper">
-  <header>
-    <div class="header-content">
-      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
-      <nav class="header-nav">
-        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
-        <a href="/index" class="nav-button">News</a>
-        <a href="/categories" class="nav-button">Categories</a>
-        <a href="/manage-categories" class="nav-button">Manage Categories</a>
-        <a href="/manage-registrations" class="nav-button">Manage Registration</a>
-        <a href="/manage-accounts" class="nav-button">Accounts</a>
-        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
-        <% if (user && user.role === 'superadmin') { %>
-        <a href="/manage-backups" class="nav-button">Backups</a>
-        <% } %>
-        <div class="dropdown">
-          <button class="nav-button dropdown-btn">Regional</button>
-          <div class="dropdown-content">
-            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
-              <a href="/admin-regional?region=All">All Regions</a>
-              <% uniqueRegions.forEach(function(region) { %>
-                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
-              <% }); %>
-            <% } else { %>
-              <div class="dropdown-empty">No regional posts available</div>
-            <% } %>
-          </div>
-        </div>
-        <a href="/logout" class="nav-button logout-button">Logout</a>
-      </nav>
-    </div>
-  </header>
+  
   <main class="main-create">
     <h2 style="text-align:center; color:#00008b; margin-bottom:32px;">Manage Categories</h2>
     <div class="category-admin-container">

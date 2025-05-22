@@ -163,76 +163,36 @@
   </div>
 
   <script>
+    console.log('[DEBUG] SCRIPT TAG EXECUTED - Test 1'); // Basic log to see if script tag runs at all
+
     document.addEventListener('DOMContentLoaded', function() {
-      const videoInput = document.getElementById('posterVideo');
-      const videoPreviewContainer = document.getElementById('videoPreviewContainer');
-      const videoPreview = document.getElementById('videoPreview');
-      const videoError = document.getElementById('videoError');
+      console.log('[DEBUG] DOMContentLoaded event fired - Test 2');
+
+      const videoInput = document.getElementById('posterVideo'); // Still need this to check for file
       const submitBtn = document.getElementById('submitVideoBtn');
-      const loadingMsg = document.getElementById('videoLoadingMessage');
-      const maxVideoSize = 50 * 1024 * 1024; // 50MB
 
-      if (videoInput) {
-        videoInput.addEventListener('change', function(event) {
-          const file = event.target.files[0];
-          videoError.style.display = 'none';
-          videoError.textContent = '';
-          submitBtn.disabled = false;
-
-          if (file) {
-            if (file.type !== 'video/mp4') {
-              videoError.textContent = 'Invalid file type. Please select an MP4 video.';
-              videoError.style.display = 'block';
-              submitBtn.disabled = true;
-              videoInput.value = ''; // Clear the input
-              return;
-            }
-            if (file.size > maxVideoSize) {
-              videoError.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 50MB.`;
-              videoError.style.display = 'block';
-              submitBtn.disabled = true;
-              videoInput.value = ''; // Clear the input
-              return;
-            }
-          }
-        });
-      }
-
-      if (videoPreviewContainer && videoPreview) {
-        videoInput.addEventListener('change', function(event) {
-          const file = event.target.files[0];
-          if (file && file.type === 'video/mp4') {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-              videoPreview.src = e.target.result;
-              videoPreviewContainer.style.display = 'block';
-            }
-            reader.readAsDataURL(file);
-          } else {
-            videoPreview.src = '';
-            videoPreviewContainer.style.display = 'none';
-            if (file) {
-              alert('Please select an MP4 video file for preview.');
-              videoInput.value = '';
-            }
-          }
-        });
-      }
-
-      if (submitBtn && loadingMsg) {
+      if (submitBtn) {
+        console.log('[DEBUG] Submit button found - Test 3');
         submitBtn.addEventListener('click', function(event) {
-          // Basic check if a file is selected
-          if (videoInput.files.length === 0) {
+          console.log('[DEBUG] Submit button CLICKED - Test 4');
+          // alert('[DEBUG] Submit button CLICKED - Test 4'); // Uncomment for very visible feedback
+
+          // Prevent submission if no file, otherwise let the form try to submit naturally
+          if (!videoInput || videoInput.files.length === 0) {
+            console.log('[DEBUG] No file selected, preventing submission.');
             alert('Please select a video file to upload.');
             event.preventDefault();
-            return;
+          } else {
+            console.log('[DEBUG] File selected, allowing default form submission.');
+            // Optionally, change button text here if needed, but keep it simple for now
+            // submitBtn.disabled = true;
+            // submitBtn.textContent = 'Uploading...';
+            // document.getElementById('videoLoadingMessage').style.display = 'inline';
           }
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Uploading...';
-          loadingMsg.style.display = 'inline';
-
-          console.log('Submit button clicked, file selected, proceeding with form submission.');
         });
+      } else {
+        console.log('[DEBUG] Submit button NOT found - Test 3 FAILED');
+        // alert('[DEBUG] Submit button NOT found - Test 3 FAILED');
       }
     });
   </script>
