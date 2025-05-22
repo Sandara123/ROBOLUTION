@@ -276,7 +276,8 @@
         <input type="text" name="title" placeholder="Post Title" required><br>
         <textarea name="content" placeholder="Write your content here..." required></textarea><br>
         <input type="text" name="author" placeholder="Author Name" required><br>
-        <input type="file" name="image" accept="image/*"><br>
+        <input type="file" name="image" accept="image/*" id="imageUpload"><br>
+        <span id="imageError" style="color: red; font-size: 0.9em;"></span><br>
         
         <div class="region-section">
           <h3>Post Region</h3>
@@ -380,6 +381,25 @@
         dateInput.disabled = false;
       }
     });
+
+    // Image file size validation
+    const imageUploadInput = document.getElementById('imageUpload');
+    const imageErrorSpan = document.getElementById('imageError');
+    const maxFileSize = 5 * 1024 * 1024; // 5MB (matches server-side limit)
+
+    if (imageUploadInput) {
+      imageUploadInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+          if (file.size > maxFileSize) {
+            imageErrorSpan.textContent = 'File is too large. Maximum size is 5MB.';
+            event.target.value = ''; // Clear the selected file
+          } else {
+            imageErrorSpan.textContent = ''; // Clear any previous error message
+          }
+        }
+      });
+    }
   });
 </script>
 </body>
