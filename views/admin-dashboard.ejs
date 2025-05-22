@@ -99,6 +99,21 @@
       color: var(--text-light);
       cursor: pointer;
       font-size: 1.2rem;
+      transition: transform 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 4px;
+    }
+
+    .sidebar-toggle:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .sidebar.collapsed .sidebar-toggle {
+      transform: rotate(180deg);
     }
 
     .sidebar-menu {
@@ -824,6 +839,16 @@
       sidebarToggle.addEventListener('click', function() {
         sidebar.classList.toggle('collapsed');
         mainContent.classList.toggle('expanded');
+        
+        // Update the toggle icon based on sidebar state
+        const toggleIcon = this.querySelector('i');
+        if (sidebar.classList.contains('collapsed')) {
+          toggleIcon.classList.remove('fa-bars');
+          toggleIcon.classList.add('fa-expand-alt');
+        } else {
+          toggleIcon.classList.remove('fa-expand-alt');
+          toggleIcon.classList.add('fa-bars');
+        }
       });
 
       // Toggle user dropdown
@@ -904,6 +929,13 @@
         if (window.innerWidth < 992) {
           sidebar.classList.add('collapsed');
           mainContent.classList.add('expanded');
+          
+          // Update the toggle icon
+          const toggleIcon = sidebarToggle.querySelector('i');
+          if (toggleIcon) {
+            toggleIcon.classList.remove('fa-bars');
+            toggleIcon.classList.add('fa-expand-alt');
+          }
         }
       }
 
