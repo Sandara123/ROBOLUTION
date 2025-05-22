@@ -163,36 +163,117 @@
   </div>
 
   <script>
-    console.log('[DEBUG] SCRIPT TAG EXECUTED - Test 1'); // Basic log to see if script tag runs at all
-
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('[DEBUG] DOMContentLoaded event fired - Test 2');
-
-      const videoInput = document.getElementById('posterVideo'); // Still need this to check for file
+      const videoInput = document.getElementById('posterVideo');
+      const videoPreviewContainer = document.getElementById('videoPreviewContainer');
+      const videoPreview = document.getElementById('videoPreview');
+      const videoError = document.getElementById('videoError');
       const submitBtn = document.getElementById('submitVideoBtn');
+      const loadingMsg = document.getElementById('videoLoadingMessage');
+      const maxVideoSize = 50 * 1024 * 1024; // 50MB
 
-      if (submitBtn) {
-        console.log('[DEBUG] Submit button found - Test 3');
-        submitBtn.addEventListener('click', function(event) {
-          console.log('[DEBUG] Submit button CLICKED - Test 4');
-          // alert('[DEBUG] Submit button CLICKED - Test 4'); // Uncomment for very visible feedback
+      if (videoInput) {
+        videoInput.addEventListener('change', function(event) {
+          const file = event.target.files[0];
+          // Reset errors and button state
+          if (videoError) {
+            videoError.style.display = 'none';
+            videoError.textContent = '';
+          }
+          if (submitBtn) {
+            submitBtn.disabled = false;
+          }
 
-          // Prevent submission if no file, otherwise let the form try to submit naturally
-          if (!videoInput || videoInput.files.length === 0) {
-            console.log('[DEBUG] No file selected, preventing submission.');
-            alert('Please select a video file to upload.');
-            event.preventDefault();
-          } else {
-            console.log('[DEBUG] File selected, allowing default form submission.');
-            // Optionally, change button text here if needed, but keep it simple for now
-            // submitBtn.disabled = true;
-            // submitBtn.textContent = 'Uploading...';
-            // document.getElementById('videoLoadingMessage').style.display = 'inline';
+          // Clear preview initially
+          if (videoPreview) {
+            videoPreview.src = '';
+          }
+          if (videoPreviewContainer) {
+            videoPreviewContainer.style.display = 'none';
+          }
+
+          if (file) {
+            // Validate type
+            if (file.type !== 'video/mp4') {
+              if (videoError) {
+                videoError.textContent = 'Invalid file type. Please select an MP4 video.';
+                videoError.style.display = 'block';
+              } else {
+                alert('Invalid file type. Please select an MP4 video.');
+              }
+              if (submitBtn) {
+                submitBtn.disabled = true;
+              }
+              videoInput.value = ''; // Clear the input
+              return;
+            }
+            // Validate size
+            if (file.size > maxVideoSize) {
+              if (videoError) {
+                videoError.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 50MB.`;
+                videoError.style.display = 'block';
+              } else {
+                alert(`File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 50MB.`);
+              }
+              if (submitBtn) {
+                submitBtn.disabled = true;
+              }
+              videoInput.value = ''; // Clear the input
+              return;
+            }
+
+            // If validations pass, try to show preview
+            if (videoPreviewContainer && videoPreview && file.type === 'video/mp4') {
+              const reader = new FileReader();
+              reader.onload = function(e) {
+                if (videoPreview) {
+                  videoPreview.src = e.target.result;
+                }
+                if (videoPreviewContainer) {
+                  videoPreviewContainer.style.display = 'block';
+                }
+              }
+              reader.readAsDataURL(file);
+            }
           }
         });
-      } else {
-        console.log('[DEBUG] Submit button NOT found - Test 3 FAILED');
-        // alert('[DEBUG] Submit button NOT found - Test 3 FAILED');
+      }
+
+      if (submitBtn && loadingMsg && videoInput && videoError) {
+        submitBtn.addEventListener('click', function(event) {
+          if (videoInput.files.length > 0) {
+            const file = videoInput.files[0];
+            // Reset previous errors
+            videoError.style.display = 'none';
+            videoError.textContent = '';
+
+            // Validate type on submit
+            if (file.type !== 'video/mp4') {
+              videoError.textContent = 'Invalid file type. Please select an MP4 video.';
+              videoError.style.display = 'block';
+              event.preventDefault(); // Prevent form submission
+              return;
+            }
+            // Validate size on submit
+            if (file.size > maxVideoSize) {
+              videoError.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 50MB.`;
+              videoError.style.display = 'block';
+              event.preventDefault(); // Prevent form submission
+              return;
+            }
+            // If all validations pass:
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading...';
+            loadingMsg.style.display = 'inline';
+            console.log('[DEBUG] Form submission allowed by client-side script.');
+            // Default form submission will occur as event.preventDefault() was not called.
+          } else { // No file selected
+            videoError.textContent = 'Please select a video file to upload.';
+            videoError.style.display = 'block';
+            event.preventDefault(); // Prevent form submission
+            return;
+          }
+        });
       }
     });
   </script>
