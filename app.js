@@ -848,10 +848,25 @@ app.post('/posts', requireAdmin, upload.single('image'), async (req, res) => {
         });
 
         console.log('Post created successfully:', post);
-        res.redirect('/index');
+        // Check if the request is coming from the dashboard iframe
+        const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
+        req.flash('success', 'Post created successfully!');
+        if (isDashboard) {
+            res.redirect('/create-post?dashboard=true');
+        } else {
+            res.redirect('/index'); // Fallback for non-dashboard context
+        }
     } catch (error) {
         console.error('Error creating post:', error);
-        res.status(500).send('Error creating post: ' + error.message);
+        const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
+        req.flash('error', 'Error creating post: ' + error.message);
+        if (isDashboard) {
+            res.redirect('/create-post?dashboard=true');
+        } else {
+            // For non-dashboard, you might want to render the page again with the error
+            // or redirect to a generic error page, or back to create-post without dashboard context
+            res.status(500).send('Error creating post: ' + error.message); 
+        }
     }
 });
 

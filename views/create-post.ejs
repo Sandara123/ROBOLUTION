@@ -272,7 +272,22 @@
     <section>
       <h2>Create a New Post</h2>
 
-      <form action="/posts" method="POST" enctype="multipart/form-data" class="post-form">
+      <% if (locals.flashMessages && flashMessages.success && flashMessages.success.length > 0) { %>
+        <div class="alert alert-success" style="background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+          <% flashMessages.success.forEach(function(message) { %>
+            <p><%= message %></p>
+          <% }); %>
+        </div>
+      <% } %>
+      <% if (locals.flashMessages && flashMessages.error && flashMessages.error.length > 0) { %>
+        <div class="alert alert-danger" style="background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+          <% flashMessages.error.forEach(function(message) { %>
+            <p><%= message %></p>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <form action="/posts<%= locals.dashboard ? '?dashboard=true' : '' %>" method="POST" enctype="multipart/form-data" class="post-form">
         <input type="text" name="title" placeholder="Post Title" required><br>
         <textarea name="content" placeholder="Write your content here..." required></textarea><br>
         <input type="text" name="author" placeholder="Author Name" required><br>
