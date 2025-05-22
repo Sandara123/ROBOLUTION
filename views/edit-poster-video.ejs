@@ -135,7 +135,7 @@
         <p>Current poster video file: <strong><%= locals.currentVideoFile || 'Robolution2025.mp4' %></strong></p>
         <p>Upload a new <strong>MP4 (.mp4)</strong> video file to replace the current one. Maximum size: 50MB.</p>
         <p>for video conversions go to <a href="https://cloudconvert.com">cloudconvert.com</a></p>
-        <p> and for downsizing go to <a href="https://www.veed.io/tools/video-compressor/mp4-compressor">"veed.io/tools/video-compressor</a></p>
+        <p> and for downsizing go to <a href="https://www.veed.io/tools/video-compressor/mp4-compressor">veed.io/tools/video-compressor</a></p>
       </div>
 
       <form action="/admin/update-poster-video<%= locals.dashboard ? '?dashboard=true' : '' %>" method="POST" enctype="multipart/form-data" class="video-upload-form">
@@ -201,7 +201,7 @@
       if (videoPreviewContainer && videoPreview) {
         videoInput.addEventListener('change', function(event) {
           const file = event.target.files[0];
-          if (file && file.type === 'video/webm') {
+          if (file && file.type === 'video/mp4') {
             const reader = new FileReader();
             reader.onload = function(e) {
               videoPreview.src = e.target.result;
@@ -211,9 +211,9 @@
           } else {
             videoPreview.src = '';
             videoPreviewContainer.style.display = 'none';
-            if (file) { // if a file was selected but wasn't webm
-              alert('Please select a WEBM video file.');
-              videoInput.value = ''; // Reset the input
+            if (file) {
+              alert('Please select an MP4 video file for preview.');
+              videoInput.value = '';
             }
           }
         });
