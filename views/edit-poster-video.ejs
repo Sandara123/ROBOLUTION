@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Poster Video | Robolution Admin</title>
+  <link rel="stylesheet" href="/css/style.css"> <%# Assuming a general stylesheet %>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f7f6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .content-wrapper {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .content-wrapper.dashboard-view {
+      margin: 0;
+      padding: 20px;
+      border-radius: 0;
+      box-shadow: none;
+      height: calc(100vh - 40px); /* Adjust based on dashboard header/padding */
+      overflow-y: auto;
+    }
+    h2 {
+      color: #00008b; /* Dark Blue */
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .form-group input[type="file"] {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .current-video-info {
+      background-color: #e9ecef;
+      padding: 10px 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      font-size: 0.95em;
+    }
+    .current-video-info strong {
+      color: #00008b;
+    }
+    .submit-btn {
+      background-color: #28a745; /* Green */
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s ease;
+    }
+    .submit-btn:hover {
+      background-color: #218838;
+    }
+    .alert {
+      padding: 15px;
+      margin-bottom: 20px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      font-size: 0.95em;
+    }
+    .alert-success {
+      color: #155724;
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+    }
+    .alert-error, .alert-danger { /* admin-dashboard might use alert-danger */
+      color: #721c24;
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+    .video-preview-container {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px dashed #ccc;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+    .video-preview-container video {
+      max-width: 100%;
+      border-radius: 4px;
+    }
+    .loading-message {
+      display: none; /* Hidden by default */
+      margin-left: 10px;
+      font-style: italic;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="content-wrapper <%= locals.dashboard ? 'dashboard-view' : '' %>">
+    <% if (!locals.dashboard) { %>
+      <header style="background-color: #00008b; color: white; padding: 20px; text-align: center; border-bottom: 5px solid #4CAF50;">
+        <h1>Robolution Admin</h1>
+      </header>
+    <% } %>
+
+    <main style="padding: 20px;">
+      <h2>Edit Poster Video</h2>
+
+      <% if (locals.flashMessages && locals.flashMessages.success && locals.flashMessages.success.length > 0) { %>
+        <div class="alert alert-success">
+          <% locals.flashMessages.success.forEach(function(message) { %><p><%= message %></p><% }); %>
+        </div>
+      <% } %>
+      <% if (locals.flashMessages && locals.flashMessages.error && locals.flashMessages.error.length > 0) { %>
+        <div class="alert alert-error">
+          <% locals.flashMessages.error.forEach(function(message) { %><p><%= message %></p><% }); %>
+        </div>
+      <% } %>
+
+      <div class="current-video-info">
+        <p>Current poster video file: <strong><%= locals.currentVideoFile || 'Robolution2025.mp4' %></strong></p>
+        <p>Upload a new <strong>MP4 (.mp4)</strong> video file to replace the current one. Maximum size: 50MB.</p>
+      </div>
+
+      <form action="/admin/update-poster-video<%= locals.dashboard ? '?dashboard=true' : '' %>" method="POST" enctype="multipart/form-data" class="video-upload-form">
+        <div class="form-group">
+          <label for="posterVideo">Select new video (MP4 only):</label>
+          <input type="file" name="posterVideo" id="posterVideo" accept=".mp4,video/mp4" required>
+          <span id="videoError" class="error-message" style="display: none;"></span>
+        </div>
+
+        <div id="videoPreviewContainer" class="video-preview-container" style="display: none;">
+          <p><strong>New video preview:</strong></p>
+          <video id="videoPreview" controls></video>
+        </div>
+        
+        <button type="submit" class="submit-btn" id="submitVideoBtn">Upload and Replace Video</button>
+        <span id="videoLoadingMessage" class="loading-message">Processing... please wait. This may take a moment.</span>
+      </form>
+    </main>
+
+    <% if (!locals.dashboard) { %>
+      <footer style="text-align: center; padding: 20px; margin-top: 30px; border-top: 1px solid #eee;">
+        <p>&copy; <%= new Date().getFullYear() %> Robolution Admin</p>
+      </footer>
+    <% } %>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const videoInput = document.getElementById('posterVideo');
+      const videoPreviewContainer = document.getElementById('videoPreviewContainer');
+      const videoPreview = document.getElementById('videoPreview');
+      const videoError = document.getElementById('videoError');
+      const submitBtn = document.getElementById('submitVideoBtn');
+      const loadingMsg = document.getElementById('videoLoadingMessage');
+      const maxVideoSize = 50 * 1024 * 1024; // 50MB
+
+      if (videoInput) {
+        videoInput.addEventListener('change', function(event) {
+          const file = event.target.files[0];
+          videoError.style.display = 'none';
+          videoError.textContent = '';
+          submitBtn.disabled = false;
+
+          if (file) {
+            if (file.type !== 'video/mp4') {
+              videoError.textContent = 'Invalid file type. Please select an MP4 video.';
+              videoError.style.display = 'block';
+              submitBtn.disabled = true;
+              videoInput.value = ''; // Clear the input
+              return;
+            }
+            if (file.size > maxVideoSize) {
+              videoError.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 50MB.`;
+              videoError.style.display = 'block';
+              submitBtn.disabled = true;
+              videoInput.value = ''; // Clear the input
+              return;
+            }
+          }
+        });
+      }
+
+      if (videoPreviewContainer && videoPreview) {
+        videoInput.addEventListener('change', function(event) {
+          const file = event.target.files[0];
+          if (file && file.type === 'video/webm') {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              videoPreview.src = e.target.result;
+              videoPreviewContainer.style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+          } else {
+            videoPreview.src = '';
+            videoPreviewContainer.style.display = 'none';
+            if (file) { // if a file was selected but wasn't webm
+              alert('Please select a WEBM video file.');
+              videoInput.value = ''; // Reset the input
+            }
+          }
+        });
+      }
+
+      if (submitBtn && loadingMsg) {
+        submitBtn.addEventListener('click', function() {
+          // Basic check if a file is selected
+          if (videoInput.files.length === 0) {
+            alert('Please select a video file to upload.');
+            return false; // Prevent form submission
+          }
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Uploading...';
+          loadingMsg.style.display = 'inline';
+        });
+      }
+    });
+  </script>
+</body>
+</html> 

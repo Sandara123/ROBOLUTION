@@ -663,6 +663,35 @@ const upload = multer({
     }
 });
 
+// Multer storage configuration for poster video
+const posterVideoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, 'public', 'images');
+    // Ensure directory exists (it should, but good practice)
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, 'Robolution2025.mp4'); // Always use this filename, overwriting existing
+  }
+});
+
+const uploadPosterVideo = multer({
+  storage: posterVideoStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'video/mp4') { // Updated to video/mp4
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only MP4 videos are allowed.'), false);
+    }
+  },
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for video
+  }
+});
+
 // Helper function to upload file to Cloudinary
 async function uploadToCloudinary(filePath, folder = 'robolution') {
   try {
@@ -1204,9 +1233,12 @@ app.get('/edit-post/:id', requireAdmin, async (req, res) => {
       .filter(region => region && region !== 'All')
     )].sort();
 
+    const isDashboard = req.query.dashboard === 'true'; // Capture dashboard status
+
     res.render('edit-post', { 
       post,
-      uniqueRegions
+      uniqueRegions,
+      dashboard: isDashboard // Pass dashboard status to the template
     });
   } catch (error) {
     console.error('Error finding post:', error);
@@ -1293,10 +1325,25 @@ app.post('/edit-post/:id', requireAdmin, upload.single('image'), async (req, res
       return res.status(404).send('Post not found. Could not update.');
     }
     
-    res.redirect('/index'); // Redirect to admin dashboard
+    // Check if the request is coming from the dashboard iframe
+    const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
+    req.flash('success', 'Post updated successfully!'); // Add a success flash message
+
+    if (isDashboard) {
+        res.redirect('/index?dashboard=true');
+    } else {
+        res.redirect('/index'); // Fallback for non-dashboard context
+    }
   } catch (error) {
     console.error('Error updating post:', error);
-    res.status(500).send('Error updating post');
+    const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
+    req.flash('error', 'Error updating post: ' + error.message);
+    if (isDashboard) {
+        // It might be better to redirect back to the edit page with the error
+        res.redirect(`/edit-post/${req.params.id}?dashboard=true`);
+    } else {
+        res.status(500).send('Error updating post');
+    }
   }
 });
 
@@ -2410,13 +2457,29 @@ app.post('/delete-post/:id', requireAdmin, async (req, res) => {
     await Post.findByIdAndDelete(postId);
     console.log(`[Delete Post] Successfully deleted post with ID: ${postId}`);
     
-    res.redirect('/index');
+    const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
+    req.flash('success', 'Post deleted successfully!');
+
+    if (isDashboard) {
+        res.redirect('/index?dashboard=true');
+    } else {
+        res.redirect('/index'); // Fallback for non-dashboard context
+    }
   } catch (error) {
     console.error(`[Delete Post] Error deleting post with ID ${req.params.id}:`, error);
+    const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
+    req.flash('error', 'Error deleting post: ' + error.message);
+
     if (error.name === 'CastError' && error.kind === 'ObjectId') {
-      return res.status(400).send('Invalid Post ID format for deletion.');
+        // Specific error for invalid ID format
+        req.flash('error', 'Invalid Post ID format for deletion.');
     }
-    res.status(500).send('Error deleting post.');
+
+    if (isDashboard) {
+        res.redirect('/index?dashboard=true'); // Redirect back to dashboard's post list even on error
+    } else {
+        res.status(500).send('Error deleting post.');
+    }
   }
 });
 
@@ -4952,9 +5015,12 @@ app.get('/edit-post/:id', requireAdmin, async (req, res) => {
       .filter(region => region && region !== 'All')
     )].sort();
 
+    const isDashboard = req.query.dashboard === 'true'; // Capture dashboard status
+
     res.render('edit-post', { 
       post: postObject,
-      uniqueRegions
+      uniqueRegions,
+      dashboard: isDashboard // Pass dashboard status to the template
     });
   } catch (error) {
     console.error('Error finding post:', error);
@@ -5794,3 +5860,44 @@ app.post('/profile/change-password', requireLogin, async (req, res) => {
 
 // Update routes for 2FA setup and verification
 // ... existing code ...
+
+// Route for admin to edit the poster video
+app.get('/admin/edit-poster-video', requireAdmin, (req, res) => {
+  const isDashboard = req.query.dashboard === 'true';
+  const currentVideoFile = 'Robolution2025.mp4'; // Updated current filename
+  res.render('edit-poster-video', {
+    user: req.session.user,
+    dashboard: isDashboard,
+    currentVideoFile,
+    // flashMessages are already available globally via middleware
+  });
+});
+
+// POST route to handle poster video update
+app.post('/admin/update-poster-video', requireAdmin, (req, res) => {
+  uploadPosterVideo.single('posterVideo')(req, res, function (err) {
+    const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
+    const redirectUrl = `/admin/edit-poster-video${isDashboard ? '?dashboard=true' : ''}`;
+
+    if (err instanceof multer.MulterError) {
+      // A Multer error occurred when uploading.
+      console.error('Multer error updating poster video:', err);
+      req.flash('error', `Upload error: ${err.message}`);
+      return res.redirect(redirectUrl);
+    } else if (err) {
+      // An unknown error occurred when uploading.
+      console.error('Unknown error updating poster video:', err);
+      req.flash('error', `Upload error: ${err.message}`);
+      return res.redirect(redirectUrl);
+    }
+
+    // If file upload was successful
+    if (!req.file) {
+      req.flash('error', 'No video file was uploaded. Please select an MP4 file.');
+      return res.redirect(redirectUrl);
+    }
+
+    req.flash('success', 'Poster video updated successfully! The change may take a moment to reflect if the browser has cached the old video.');
+    res.redirect(redirectUrl);
+  });
+});

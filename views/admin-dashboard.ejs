@@ -640,6 +640,12 @@
           </a>
         </div>
         <div class="sidebar-item">
+          <a href="#edit-poster-video" class="sidebar-link" data-page="edit-poster-video">
+            <i class="fas fa-video sidebar-icon"></i>
+            <span class="sidebar-text">Edit Poster Video</span>
+          </a>
+        </div>
+        <div class="sidebar-item">
           <a href="/logout" class="sidebar-link">
             <i class="fas fa-sign-out-alt sidebar-icon"></i>
             <span class="sidebar-text">Logout</span>
@@ -878,7 +884,8 @@
             'manage-accounts': '/manage-accounts',
             'user-profiles': '/admin/user-profiles',
             'manage-registrations': '/manage-registrations',
-            'backups': '/manage-backups'
+            'backups': '/manage-backups',
+            'edit-poster-video': '/admin/edit-poster-video'
           };
           
           url = pageUrls[pageName] || `/${pageName}`;
