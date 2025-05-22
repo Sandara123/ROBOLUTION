@@ -220,15 +220,18 @@
       }
 
       if (submitBtn && loadingMsg) {
-        submitBtn.addEventListener('click', function() {
+        submitBtn.addEventListener('click', function(event) {
           // Basic check if a file is selected
           if (videoInput.files.length === 0) {
             alert('Please select a video file to upload.');
-            return false; // Prevent form submission
+            event.preventDefault();
+            return;
           }
           submitBtn.disabled = true;
           submitBtn.textContent = 'Uploading...';
           loadingMsg.style.display = 'inline';
+
+          console.log('Submit button clicked, file selected, proceeding with form submission.');
         });
       }
     });
