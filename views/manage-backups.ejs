@@ -327,6 +327,48 @@
     }
   </style>
   <% } %>
+
+  <style>
+    /* Loading Overlay for Restore */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      color: white;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .loading-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .loading-spinner {
+      border: 8px solid #f3f3f3; /* Light grey */
+      border-top: 8px solid #00008b; /* Blue */
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .loading-overlay p {
+      font-size: 1.2rem;
+    }
+  </style>
 </head>
 <body>
 <div class="content-wrapper">
@@ -466,6 +508,13 @@
   </div>
 </div>
 
+<!-- Loading Overlay for Restore -->
+<div id="restoreLoadingOverlay" class="loading-overlay">
+  <div class="loading-spinner"></div>
+  <p>Restoring database... This may take a few moments.</p>
+  <p>Please do not close or navigate away from this page.</p>
+</div>
+
 <script>
   // Confirmation modal functions
   function confirmRestore(event, backupName) {
@@ -476,6 +525,8 @@
     
     // Set the URL for the confirmation button
     confirmBtn.onclick = function() {
+      // Show loading overlay before navigating
+      document.getElementById('restoreLoadingOverlay').classList.add('active');
       window.location.href = `/restore-backup/${backupName}`;
     };
     

@@ -319,7 +319,8 @@
           <input type="date" id="date" name="date" >
         </div><br>
 
-        <input type="submit" value="Submit" class="submit-btn">
+        <input type="submit" value="Submit" class="submit-btn" id="submitPostBtn">
+        <span id="loadingMessage" style="margin-left: 10px; display: none;">Processing... please wait.</span>
       </form>
 
       <br>
@@ -386,6 +387,9 @@
     const imageUploadInput = document.getElementById('imageUpload');
     const imageErrorSpan = document.getElementById('imageError');
     const maxFileSize = 5 * 1024 * 1024; // 5MB (matches server-side limit)
+    const postForm = document.querySelector('.post-form');
+    const submitPostBtn = document.getElementById('submitPostBtn');
+    const loadingMessage = document.getElementById('loadingMessage');
 
     if (imageUploadInput) {
       imageUploadInput.addEventListener('change', function(event) {
@@ -398,6 +402,21 @@
             imageErrorSpan.textContent = ''; // Clear any previous error message
           }
         }
+      });
+    }
+
+    if (postForm && submitPostBtn && loadingMessage) {
+      postForm.addEventListener('submit', function() {
+        // Check if file size validation failed (error message is visible)
+        if (imageErrorSpan.textContent !== '') {
+          // If there's an image error, prevent form submission
+          // The error message is already displayed by the image validation logic
+          event.preventDefault(); 
+          return;
+        }
+        submitPostBtn.disabled = true;
+        submitPostBtn.value = 'Submitting...';
+        loadingMessage.style.display = 'inline';
       });
     }
   });
