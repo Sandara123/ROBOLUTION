@@ -134,6 +134,8 @@
       <div class="current-video-info">
         <p>Current poster video file: <strong><%= locals.currentVideoFile || 'Robolution2025.mp4' %></strong></p>
         <p>Upload a new <strong>MP4 (.mp4)</strong> video file to replace the current one. Maximum size: 50MB.</p>
+        <p>for video conversions go to <a href="https://cloudconvert.com">cloudconvert.com</a></p>
+        <p> and for downsizing go to <a href="https://www.veed.io/tools/video-compressor/mp4-compressor">"veed.io/tools/video-compressor</a></p>
       </div>
 
       <form action="/admin/update-poster-video<%= locals.dashboard ? '?dashboard=true' : '' %>" method="POST" enctype="multipart/form-data" class="video-upload-form">
