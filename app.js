@@ -5637,12 +5637,29 @@ app.get('/admin-dashboard', requireAdmin, async (req, res) => {
     try {
         const posts = await Post.find({}); // For uniqueRegions
         const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
+
+        // Fetch counts for dashboard cards
+        const totalPosts = await robolutionDb.collection('posts').countDocuments();
+        const totalRegistrations = await robolutionDb.collection('registrations').countDocuments();
+        const totalCategories = await robolutionDb.collection('categories').countDocuments();
+        
+        // For accounts, we need to sum users from the 'users' collection 
+        // and admins from the 'admins' collection in adminDB
+        const totalRegularUsers = await robolutionDb.collection('users').countDocuments();
+        const totalAdmins = await db.collection('admins').countDocuments(); // 'db' is the adminDB connection
+        const totalUserAccounts = totalRegularUsers + totalAdmins;
         
         res.render('admin-dashboard', { 
             user: req.session.user,
             uniqueRegions: uniqueRegions,
-            pageTitle: 'Admin Dashboard', // Optional: for consistency
-            dashboard: true // Explicitly pass dashboard true for the main dashboard page itself
+            pageTitle: 'Admin Dashboard',
+            dashboard: true,
+            stats: {
+                totalPosts,
+                totalRegistrations,
+                totalCategories,
+                totalUserAccounts
+            }
         });
     } catch (error) {
         console.error('Error loading admin dashboard:', error);

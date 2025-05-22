@@ -701,10 +701,10 @@
             <div class="card-header">
               <div>
                 <div class="card-title">Total Posts</div>
-                <div class="card-value">198</div>
-                <div class="card-change positive">
+                <div class="card-value"><%= locals.stats && locals.stats.totalPosts !== undefined ? stats.totalPosts : 'N/A' %></div>
+                <% /* <div class="card-change positive">
                   <i class="fas fa-arrow-up"></i> 12% from last month
-                </div>
+                </div> */ %>
               </div>
               <div class="card-icon blue">
                 <i class="fas fa-newspaper"></i>
@@ -716,10 +716,10 @@
             <div class="card-header">
               <div>
                 <div class="card-title">Registrations</div>
-                <div class="card-value">342</div>
-                <div class="card-change positive">
+                <div class="card-value"><%= locals.stats && locals.stats.totalRegistrations !== undefined ? stats.totalRegistrations : 'N/A' %></div>
+                <% /* <div class="card-change positive">
                   <i class="fas fa-arrow-up"></i> 18% from last month
-                </div>
+                </div> */ %>
               </div>
               <div class="card-icon green">
                 <i class="fas fa-user-plus"></i>
@@ -731,10 +731,10 @@
             <div class="card-header">
               <div>
                 <div class="card-title">Categories</div>
-                <div class="card-value">24</div>
-                <div class="card-change negative">
+                <div class="card-value"><%= locals.stats && locals.stats.totalCategories !== undefined ? stats.totalCategories : 'N/A' %></div>
+                <% /* <div class="card-change negative">
                   <i class="fas fa-arrow-down"></i> 3% from last month
-                </div>
+                </div> */ %>
               </div>
               <div class="card-icon orange">
                 <i class="fas fa-layer-group"></i>
@@ -746,10 +746,10 @@
             <div class="card-header">
               <div>
                 <div class="card-title">User Accounts</div>
-                <div class="card-value">87</div>
-                <div class="card-change positive">
+                <div class="card-value"><%= locals.stats && locals.stats.totalUserAccounts !== undefined ? stats.totalUserAccounts : 'N/A' %></div>
+                <% /* <div class="card-change positive">
                   <i class="fas fa-arrow-up"></i> 5% from last month
-                </div>
+                </div> */ %>
               </div>
               <div class="card-icon red">
                 <i class="fas fa-users"></i>
