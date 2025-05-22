@@ -5951,27 +5951,34 @@ app.get('/admin/edit-poster-video', requireAdmin, (req, res) => {
 
 // POST route to handle poster video update
 app.post('/admin/update-poster-video', requireAdmin, (req, res) => {
+  console.log('[LOG] POST /admin/update-poster-video route hit.'); // Added log
+
   uploadPosterVideo.single('posterVideo')(req, res, function (err) {
     const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
     const redirectUrl = `/admin/edit-poster-video${isDashboard ? '?dashboard=true' : ''}`;
 
+    console.log('[LOG] Inside uploadPosterVideo.single callback.'); // Added log
+
     if (err instanceof multer.MulterError) {
       // A Multer error occurred when uploading.
-      console.error('Multer error updating poster video:', err);
+      console.error('[LOG] Multer error updating poster video:', err); // Modified log
       req.flash('error', `Upload error: ${err.message}`);
       return res.redirect(redirectUrl);
     } else if (err) {
       // An unknown error occurred when uploading.
-      console.error('Unknown error updating poster video:', err);
+      console.error('[LOG] Unknown error updating poster video:', err); // Modified log
       req.flash('error', `Upload error: ${err.message}`);
       return res.redirect(redirectUrl);
     }
 
     // If file upload was successful
     if (!req.file) {
+      console.log('[LOG] No video file was uploaded (req.file is empty).'); // Added log
       req.flash('error', 'No video file was uploaded. Please select an MP4 file.');
       return res.redirect(redirectUrl);
     }
+
+    console.log('[LOG] Video file uploaded, req.file:', req.file); // Added log
 
     // === ADDED LOGIC START ===
     const originalFilename = req.file.originalname;
