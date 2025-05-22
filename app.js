@@ -5909,11 +5909,42 @@ app.post('/profile/change-password', requireLogin, async (req, res) => {
 // Route for admin to edit the poster video
 app.get('/admin/edit-poster-video', requireAdmin, (req, res) => {
   const isDashboard = req.query.dashboard === 'true';
-  const currentVideoFile = 'Robolution2025.mp4'; // Updated current filename
+  // === MODIFIED LOGIC START ===
+  let displayedVideoFilename = 'No video uploaded yet.';
+  const posterVideoPath = path.join(__dirname, 'public', 'images', 'Robolution2025.mp4');
+  const posterInfoPath = path.join(__dirname, 'poster-info.json');
+
+  if (fs.existsSync(posterVideoPath)) {
+    displayedVideoFilename = 'Robolution2025.mp4'; // Default if info file is missing
+    if (fs.existsSync(posterInfoPath)) {
+      try {
+        const posterInfoRaw = fs.readFileSync(posterInfoPath, 'utf8');
+        const posterInfo = JSON.parse(posterInfoRaw);
+        if (posterInfo && posterInfo.originalFilename) {
+          displayedVideoFilename = posterInfo.originalFilename;
+        }
+      } catch (readError) {
+        console.error('Error reading poster-info.json:', readError);
+        // Keep default Robolution2025.mp4 if info file is corrupted
+      }
+    }
+  } else {
+    // If Robolution2025.mp4 does not exist, ensure poster-info.json is also removed for consistency
+    if (fs.existsSync(posterInfoPath)) {
+        try {
+            fs.unlinkSync(posterInfoPath);
+            console.log('Removed poster-info.json because Robolution2025.mp4 was not found.');
+        } catch (unlinkError) {
+            console.error('Error removing poster-info.json:', unlinkError);
+        }
+    }
+  }
+  // === MODIFIED LOGIC END ===
+
   res.render('edit-poster-video', {
     user: req.session.user,
     dashboard: isDashboard,
-    currentVideoFile,
+    currentVideoFile: displayedVideoFilename, // Use the new variable
     // flashMessages are already available globally via middleware
   });
 });
@@ -5941,6 +5972,19 @@ app.post('/admin/update-poster-video', requireAdmin, (req, res) => {
       req.flash('error', 'No video file was uploaded. Please select an MP4 file.');
       return res.redirect(redirectUrl);
     }
+
+    // === ADDED LOGIC START ===
+    const originalFilename = req.file.originalname;
+    const posterInfoPath = path.join(__dirname, 'poster-info.json');
+    const posterInfo = { originalFilename: originalFilename, uploadedTimestamp: new Date().toISOString() };
+    try {
+      fs.writeFileSync(posterInfoPath, JSON.stringify(posterInfo, null, 2));
+      console.log(`Stored poster info: ${originalFilename}`);
+    } catch (writeError) {
+      console.error('Error writing poster-info.json:', writeError);
+      // Not critical enough to fail the request, but log it.
+    }
+    // === ADDED LOGIC END ===
 
     req.flash('success', 'Poster video updated successfully! The change may take a moment to reflect if the browser has cached the old video.');
     res.redirect(redirectUrl);
