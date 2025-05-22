@@ -138,7 +138,7 @@
         <p> and for downsizing go to <a href="https://www.veed.io/tools/video-compressor/mp4-compressor">veed.io/tools/video-compressor</a></p>
       </div>
 
-      <form action="/admin/update-poster-video<%= locals.dashboard ? '?dashboard=true' : '' %>" method="POST" enctype="multipart/form-data" class="video-upload-form">
+      <form action="/admin/update-poster-video<%= locals.dashboard ? '?dashboard=true' : '' %>" method="POST" enctype="multipart/form-data" class="video-upload-form" id="videoUploadForm">
         <div class="form-group">
           <label for="posterVideo">Select new video (MP4 only):</label>
           <input type="file" name="posterVideo" id="posterVideo" accept=".mp4,video/mp4" required>
@@ -150,7 +150,7 @@
           <video id="videoPreview" controls></video>
         </div>
         
-        <button type="submit" class="submit-btn" id="submitVideoBtn">Upload and Replace Video</button>
+        <button type="button" class="submit-btn" id="submitVideoBtn">Upload and Replace Video</button>
         <span id="videoLoadingMessage" class="loading-message">Processing... please wait. This may take a moment.</span>
       </form>
     </main>
@@ -175,6 +175,7 @@
       const videoError = document.getElementById('videoError');
       const submitBtn = document.getElementById('submitVideoBtn');
       const loadingMsg = document.getElementById('videoLoadingMessage');
+      const form = document.getElementById('videoUploadForm');
       const maxVideoSize = 50 * 1024 * 1024; // 50MB
       
       console.log('DOM loaded - Form submission handlers initialized');
@@ -255,23 +256,22 @@
         });
       }
 
-      const form = document.querySelector('.video-upload-form');
+      // Form submit handler
       if (form) {
-        console.log('Form found, attaching submit listener');
-        form.addEventListener('submit', function(event) {
-          console.log('Form submit event triggered');
-        });
+        console.log('Form found, ready for submission');
       } else {
         console.error('Form element not found');
       }
 
-      if (submitBtn && loadingMsg && videoInput && videoError) {
+      // Manual submit button handler
+      if (submitBtn && form && videoInput && videoError) {
         submitBtn.addEventListener('click', function(event) {
           console.log('Submit button clicked');
           
           if (videoInput.files.length > 0) {
             const file = videoInput.files[0];
             console.log('Preparing submission for:', file.name);
+            
             // Reset previous errors
             videoError.style.display = 'none';
             videoError.textContent = '';
@@ -281,44 +281,70 @@
               console.log('Submit blocked: Invalid file type');
               videoError.textContent = 'Invalid file type. Please select an MP4 video.';
               videoError.style.display = 'block';
-              event.preventDefault(); // Prevent form submission
               return;
             }
+            
             // Validate size on submit
             if (file.size > maxVideoSize) {
               console.log('Submit blocked: File too large');
               videoError.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 50MB.`;
               videoError.style.display = 'block';
-              event.preventDefault(); // Prevent form submission
               return;
             }
+            
             // If all validations pass:
-            console.log('Validation passed, proceeding with submission');
+            console.log('Validation passed, proceeding with forced submission');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Uploading...';
             loadingMsg.style.display = 'inline';
-            console.log('Form submission started - UI updated to uploading state');
-            // Check form action and method
-            console.log('Form action:', form.action);
-            console.log('Form method:', form.method);
-            console.log('Form enctype:', form.enctype);
-            // Let's add an extra check to see if the form really submits
-            setTimeout(() => {
-              if (!submitBtn.disabled) {
-                console.log('Button state changed - form might have been reset');
-              } else {
-                console.log('Button still disabled - submission likely in progress');
-              }
-            }, 500);
             
-            console.log('[DEBUG] Form submission allowed by client-side script.');
-            // Default form submission will occur as event.preventDefault() was not called.
+            // Force form submission using FormData for better handling of file uploads
+            const formData = new FormData(form);
+            console.log('FormData created with file:', file.name);
+            
+            // Show what's being submitted
+            console.log('Form action URL:', form.action);
+            
+            // Use fetch API to submit the form
+            fetch(form.action, {
+              method: 'POST',
+              body: formData,
+              // Credentials same-origin ensures cookies are sent with the request
+              credentials: 'same-origin'
+            })
+            .then(response => {
+              console.log('Server response received:', response.status);
+              if (response.ok) {
+                console.log('Server accepted the submission');
+                return response.text();
+              } else {
+                console.error('Server rejected the submission:', response.status);
+                throw new Error('Server rejected the submission');
+              }
+            })
+            .then(html => {
+              console.log('Successfully processed form submission');
+              // Replace the current page with the response from the server
+              document.open();
+              document.write(html);
+              document.close();
+            })
+            .catch(error => {
+              console.error('Error during form submission:', error);
+              // Reset the button state
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Upload and Replace Video';
+              loadingMsg.style.display = 'none';
+              
+              // Show error to user
+              videoError.textContent = 'Error uploading video. Please try again or contact support.';
+              videoError.style.display = 'block';
+            });
+            
           } else { // No file selected
             console.log('Submit blocked: No file selected');
             videoError.textContent = 'Please select a video file to upload.';
             videoError.style.display = 'block';
-            event.preventDefault(); // Prevent form submission
-            return;
           }
         });
       }
