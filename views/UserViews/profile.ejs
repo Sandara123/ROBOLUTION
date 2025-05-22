@@ -925,10 +925,25 @@
           successElement.style.display = 'block';
           document.getElementById('changePasswordForm').reset();
           
-          // Automatically close the modal after 3 seconds
-          setTimeout(() => {
-            closeChangePasswordModal();
-          }, 3000);
+          if (data.needsReLogin) {
+            // Clear login status from localStorage
+            try {
+              localStorage.removeItem('isLoggedIn');
+              console.log('Cleared login status from localStorage due to 2FA re-setup.');
+            } catch (e) {
+              console.error('Could not clear localStorage:', e);
+            }
+            // Inform user and redirect to login after a delay
+            setTimeout(() => {
+              alert('Password changed. You will now be logged out to set up Two-Factor Authentication.');
+              window.location.href = '/login'; // Redirect to login page
+            }, 1000); 
+          } else {
+            // Automatically close the modal after 3 seconds if no re-login needed
+            setTimeout(() => {
+              closeChangePasswordModal();
+            }, 3000);
+          }
         } else {
           errorElement.textContent = data.message || 'An error occurred while changing the password.';
           errorElement.style.display = 'block';

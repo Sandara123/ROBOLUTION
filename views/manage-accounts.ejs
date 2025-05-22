@@ -393,9 +393,15 @@
                   <td class="actions-cell">
                     <a href="/account/user/edit/<%= userAccount._id %><%= locals.dashboard ? '?dashboard=true' : '' %>" class="action-button edit">Edit</a>
                     <button onclick="showChangePasswordModal('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button change-pwd">Change Password</button>
-                    <button onclick="confirmResetPassword('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #ff9800;">Reset Password</button>
+                    <button onclick="confirmResetPassword('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #ff9800;">Reset User Password</button>
                     <button onclick="confirmMakeAdmin('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #28a745;">Make Admin</button>
-                    <button onclick="confirmDeleteUser('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button delete">Delete</button>
+                    <% if (userAccount.twoFactorEnabled) { %>
+                      <button onclick="confirmDisable2FA('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #f0ad4e;">Disable 2FA</button>
+                      <button onclick="confirmReset2FASecret('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #d9534f;">Reset 2FA Secret</button>
+                    <% } else { %>
+                      <button onclick="confirmForce2FASetup('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button" style="background-color: #5bc0de;">Force 2FA Setup</button>
+                    <% } %>
+                    <button onclick="confirmDeleteUser('<%= userAccount._id %>', '<%= userAccount.username %>')" class="action-button delete">Delete User</button>
                   </td>
                 </tr>
                 <% }); %>
@@ -462,6 +468,27 @@
   function confirmMakeAdmin(id, username) {
     if (confirm(`Are you sure you want to make "${username}" an admin? This will move their account to the admin section and grant them admin privileges.`)) {
       window.location.href = `/account/user/make-admin/${id}`;
+    }
+  }
+  
+  // Function to confirm forcing 2FA setup
+  function confirmForce2FASetup(id, username) {
+    if (confirm(`Are you sure you want to force ${username} to set up Two-Factor Authentication on their next login? Their current 2FA secret (if any) will be cleared.`)) {
+      window.location.href = `/admin/user/${id}/force-2fa-setup`;
+    }
+  }
+
+  // Function to confirm disabling 2FA
+  function confirmDisable2FA(id, username) {
+    if (confirm(`Are you sure you want to disable Two-Factor Authentication for ${username}? They will be vulnerable until they re-enable it.`)) {
+      window.location.href = `/admin/user/${id}/disable-2fa`;
+    }
+  }
+
+  // Function to confirm resetting 2FA secret
+  function confirmReset2FASecret(id, username) {
+    if (confirm(`Are you sure you want to reset the Two-Factor Authentication secret for ${username}? This will disable their current 2FA and require them to set it up again on their next login.`)) {
+      window.location.href = `/admin/user/${id}/reset-2fa-secret`;
     }
   }
   

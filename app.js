@@ -1551,7 +1551,23 @@ app.post('/login', async (req, res) => {
                 return res.json({ success: false, message: 'Invalid username or password' });
             }
             
-            // Check if this user needs to set up 2FA after password reset
+            // MANDATORY 2FA CHECK FOR REGULAR USERS
+            // If 2FA is not enabled OR if there's no secret (meaning setup was incomplete or reset)
+            if (!regularUser.twoFactorEnabled || !regularUser.twoFactorSecret) {
+                console.log(`User ${username} requires 2FA setup. Enabled: ${regularUser.twoFactorEnabled}, HasSecret: ${!!regularUser.twoFactorSecret}`);
+                // Pass username and password to the 2FA setup confirmation page
+                // The client-side will handle redirecting to /2fa-confirmation
+                return res.json({
+                    success: false, // Indicate that login is not yet complete
+                    requireTwoFactor: true,
+                    needs2FASetup: true, // Signal that setup is needed
+                    message: 'Two-factor authentication is required. Please set it up now.',
+                    username: username, // Pass username
+                    password: password  // Pass password (client-side should handle this securely)
+                });
+            }
+            
+            // Check if this user needs to set up 2FA after password reset (this handles existing needs2FASetup flag)
             if (regularUser.needs2FASetup) {
                 return res.json({ 
                     success: false, 
@@ -1563,7 +1579,7 @@ app.post('/login', async (req, res) => {
                 });
             }
             
-            // Check if 2FA is enabled for this user
+            // Check if 2FA is enabled for this user (this part handles existing 2FA verification)
             if (regularUser.twoFactorEnabled) {
                 // If no token provided but 2FA is enabled, request token
                 if (!token) {
@@ -4083,11 +4099,40 @@ app.post('/account/user/change-password/:id', requireAdmin, async (req, res) => 
     
     // Update the user's password but maintain 2FA status
     user.password = hashedPassword;
-    await user.save();
+
+    // Check if 2FA needs to be enforced
+    let force2FASetup = false;
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      user.needs2FASetup = true;
+      force2FASetup = true;
+    }
     
-    res.json({ success: true, message: `Password for ${user.username} has been changed successfully.` });
+    await user.save();
+
+    if (force2FASetup) {
+      // Destroy session and force re-login to go through 2FA setup
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Error destroying session after password change for 2FA setup:', err);
+          // Still send a success message, but log the session error
+          return res.json({ 
+            success: true, 
+            message: 'Password changed successfully. Please log in again to set up Two-Factor Authentication.', 
+            needsReLogin: true 
+          });
+        }
+        res.clearCookie('robolution_session'); // Ensure cookie is cleared
+        return res.json({ 
+          success: true, 
+          message: 'Password changed successfully. Please log in again to set up Two-Factor Authentication.', 
+          needsReLogin: true 
+        });
+      });
+    } else {
+      res.json({ success: true, message: 'Password changed successfully' });
+    }
   } catch (error) {
-    console.error('Error changing user password:', error);
+    console.error('Error changing password:', error);
     res.status(500).json({ success: false, message: 'An error occurred while changing the password.' });
   }
 });
@@ -5901,3 +5946,74 @@ app.post('/admin/update-poster-video', requireAdmin, (req, res) => {
     res.redirect(redirectUrl);
   });
 });
+
+// ==== ADMIN USER 2FA MANAGEMENT ROUTES ====
+
+// Force a user to set up 2FA on next login
+app.get('/admin/user/:id/force-2fa-setup', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      req.flash('error', 'User not found.');
+      return res.redirect('/manage-accounts');
+    }
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null; // Clear any existing secret
+    user.backupCodes = [];       // Clear backup codes
+    user.needs2FASetup = true;
+    await user.save();
+    req.flash('success', `User ${user.username} will be required to set up 2FA on their next login.`)
+  } catch (error) {
+    console.error('Error forcing 2FA setup:', error);
+    req.flash('error', 'Error forcing 2FA setup.');
+  }
+  res.redirect('/manage-accounts');
+});
+
+// Disable 2FA for a user
+app.get('/admin/user/:id/disable-2fa', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      req.flash('error', 'User not found.');
+      return res.redirect('/manage-accounts');
+    }
+    user.twoFactorEnabled = false;
+    // Optionally, you might want to clear the secret and backup codes too for a cleaner disable
+    // user.twoFactorSecret = null;
+    // user.backupCodes = [];
+    await user.save();
+    req.flash('success', `2FA has been disabled for ${user.username}.`);
+  } catch (error) {
+    console.error('Error disabling 2FA:', error);
+    req.flash('error', 'Error disabling 2FA.');
+  }
+  res.redirect('/manage-accounts');
+});
+
+// Reset/Clear 2FA Secret for a user (forces re-setup)
+app.get('/admin/user/:id/reset-2fa-secret', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      req.flash('error', 'User not found.');
+      return res.redirect('/manage-accounts');
+    }
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    user.backupCodes = [];
+    user.needs2FASetup = true;
+    await user.save();
+    req.flash('success', `2FA secret has been reset for ${user.username}. They will need to set it up again on next login.`);
+  } catch (error) {
+    console.error('Error resetting 2FA secret:', error);
+    req.flash('error', 'Error resetting 2FA secret.');
+  }
+  res.redirect('/manage-accounts');
+});
+
+// Update routes for 2FA setup and verification
+// ... existing code ...
