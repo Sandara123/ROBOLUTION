@@ -538,54 +538,6 @@
 <body>
 <div class="content-wrapper">
 
-  <header>
-    <div class="header-content">
-      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
-      <!-- Mobile menu toggle will be added by JavaScript on small screens -->
-      <nav class="header-nav">
-        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
-        <a href="/index" class="nav-button">News</a>
-        <a href="/categories" class="nav-button">Categories</a>
-        <a href="/manage-categories" class="nav-button">Manage Categories</a>
-        <a href="/manage-registrations" class="nav-button">Registrations</a>
-        <a href="/manage-accounts" class="nav-button">Accounts</a>
-        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
-        <% if (user && user.role === 'superadmin') { %>
-        <a href="/manage-backups" class="nav-button">Backups</a>
-        <% } %>
-        <div class="dropdown">
-          <button class="nav-button dropdown-btn">Regional</button>
-          <div class="dropdown-content">
-            <a href="/admin-regional?region=All">All Regions</a>
-            <% 
-            // Try to get regions with posts
-            let validRegions = [];
-            
-            // Extract regions from posts
-            posts.forEach(post => {
-              if (post.region && post.region !== 'All' && !validRegions.includes(post.region)) {
-                validRegions.push(post.region);
-              }
-            });
-            
-            // Sort regions alphabetically
-            validRegions.sort();
-            
-            // Display regions with posts
-            if (validRegions.length > 0) {
-              validRegions.forEach(function(region) { %>
-                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
-              <% });
-            } else { %>
-              <div class="dropdown-empty">No regional posts available</div>
-            <% } %>
-          </div>
-        </div>
-        <a href="/logout" class="nav-button logout-button">Logout</a>
-      </nav>
-    </div>
-  </header>
-
 <main>
   <div class="container">
     <h1>Manage Registrations</h1>
@@ -909,32 +861,6 @@
     }
   </script>
 </main>
-
-  <footer>
-    <div class="footer-content">
-      <div class="footer-left">
-        <p>Powered by Erovoutika</p>
-      </div>
-
-      <footer class="fixed-footer">
-        <div class="footer-content">
-          <div class="footer-left">
-            <p>Powered by Erovoutika</p>
-          </div>
-
-          <div class="footer-right">
-            <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
-            <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
-            <div class="social-icons">
-              <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
-              <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
-              <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
-  </footer>
 </div>
 
 <a href="#" class="back-to-top" id="backToTop">↑</a>
