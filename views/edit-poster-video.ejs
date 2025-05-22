@@ -163,6 +163,11 @@
   </div>
 
   <script>
+    // Track page unload events to see if form submission happens
+    window.addEventListener('beforeunload', function(event) {
+      console.log('Page is being unloaded - possible form submission');
+    });
+    
     document.addEventListener('DOMContentLoaded', function() {
       const videoInput = document.getElementById('posterVideo');
       const videoPreviewContainer = document.getElementById('videoPreviewContainer');
@@ -171,9 +176,12 @@
       const submitBtn = document.getElementById('submitVideoBtn');
       const loadingMsg = document.getElementById('videoLoadingMessage');
       const maxVideoSize = 50 * 1024 * 1024; // 50MB
+      
+      console.log('DOM loaded - Form submission handlers initialized');
 
       if (videoInput) {
         videoInput.addEventListener('change', function(event) {
+          console.log('File selected:', event.target.files[0]?.name || 'No file');
           const file = event.target.files[0];
           // Reset errors and button state
           if (videoError) {
@@ -193,8 +201,10 @@
           }
 
           if (file) {
+            console.log('File details - Type:', file.type, 'Size:', (file.size / 1024 / 1024).toFixed(2) + 'MB');
             // Validate type
             if (file.type !== 'video/mp4') {
+              console.log('Error: Invalid file type detected');
               if (videoError) {
                 videoError.textContent = 'Invalid file type. Please select an MP4 video.';
                 videoError.style.display = 'block';
@@ -209,6 +219,7 @@
             }
             // Validate size
             if (file.size > maxVideoSize) {
+              console.log('Error: File too large:', (file.size / 1024 / 1024).toFixed(2) + 'MB');
               if (videoError) {
                 videoError.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 50MB.`;
                 videoError.style.display = 'block';
@@ -224,8 +235,10 @@
 
             // If validations pass, try to show preview
             if (videoPreviewContainer && videoPreview && file.type === 'video/mp4') {
+              console.log('Creating video preview');
               const reader = new FileReader();
               reader.onload = function(e) {
+                console.log('Preview loaded successfully');
                 if (videoPreview) {
                   videoPreview.src = e.target.result;
                 }
@@ -233,22 +246,39 @@
                   videoPreviewContainer.style.display = 'block';
                 }
               }
+              reader.onerror = function(e) {
+                console.error('Preview loading error:', e);
+              }
               reader.readAsDataURL(file);
             }
           }
         });
       }
 
+      const form = document.querySelector('.video-upload-form');
+      if (form) {
+        console.log('Form found, attaching submit listener');
+        form.addEventListener('submit', function(event) {
+          console.log('Form submit event triggered');
+        });
+      } else {
+        console.error('Form element not found');
+      }
+
       if (submitBtn && loadingMsg && videoInput && videoError) {
         submitBtn.addEventListener('click', function(event) {
+          console.log('Submit button clicked');
+          
           if (videoInput.files.length > 0) {
             const file = videoInput.files[0];
+            console.log('Preparing submission for:', file.name);
             // Reset previous errors
             videoError.style.display = 'none';
             videoError.textContent = '';
 
             // Validate type on submit
             if (file.type !== 'video/mp4') {
+              console.log('Submit blocked: Invalid file type');
               videoError.textContent = 'Invalid file type. Please select an MP4 video.';
               videoError.style.display = 'block';
               event.preventDefault(); // Prevent form submission
@@ -256,18 +286,35 @@
             }
             // Validate size on submit
             if (file.size > maxVideoSize) {
+              console.log('Submit blocked: File too large');
               videoError.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 50MB.`;
               videoError.style.display = 'block';
               event.preventDefault(); // Prevent form submission
               return;
             }
             // If all validations pass:
+            console.log('Validation passed, proceeding with submission');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Uploading...';
             loadingMsg.style.display = 'inline';
+            console.log('Form submission started - UI updated to uploading state');
+            // Check form action and method
+            console.log('Form action:', form.action);
+            console.log('Form method:', form.method);
+            console.log('Form enctype:', form.enctype);
+            // Let's add an extra check to see if the form really submits
+            setTimeout(() => {
+              if (!submitBtn.disabled) {
+                console.log('Button state changed - form might have been reset');
+              } else {
+                console.log('Button still disabled - submission likely in progress');
+              }
+            }, 500);
+            
             console.log('[DEBUG] Form submission allowed by client-side script.');
             // Default form submission will occur as event.preventDefault() was not called.
           } else { // No file selected
+            console.log('Submit blocked: No file selected');
             videoError.textContent = 'Please select a video file to upload.';
             videoError.style.display = 'block';
             event.preventDefault(); // Prevent form submission
