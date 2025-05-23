@@ -23,6 +23,7 @@ const qrcode = require('qrcode');
 const { exec } = require('child_process'); // For executing system commands
 const { ObjectId } = require('mongodb'); // Added for ObjectId usage
 const axios = require('axios');
+const MongoStore = require('connect-mongo');
 
 // Try to load connect-flash if available, but don't fail if it's not
 let flash;
@@ -36,8 +37,6 @@ try {
 // Define Admin model placeholder
 // Note: The actual Admin model is defined after database connection setup
 const cloudinary = require('cloudinary').v2; // Add Cloudinary
-const MongoStore = require('connect-mongo');
-const speakeasy = require('speakeasy');
 
 // Trust proxy - required for secure cookies in production
 if (process.env.NODE_ENV === 'production') {
@@ -86,21 +85,43 @@ if (!uri) {
 let db; // For adminDB access
 let robolutionDb; // For direct robolution database access
 
-// Set up session middleware before routes
+console.log('MongoDB URI from environment variable:', process.env.MONGODB_URI); // Log the URI
+
+const sessionStore = MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    dbName: 'robolution',
+    collectionName: 'sessions',
+    ttl: 24 * 60 * 60, // Session TTL in seconds (1 day)
+    autoRemove: 'native', // Enable automatic removal of expired sessions
+    crypto: {
+        secret: process.env.SESSION_SECRET || 'your-secure-admin-key'
+    }
+});
+
+sessionStore.on('create', function () {
+  console.log('MongoStore: A session was created');
+});
+sessionStore.on('update', function () {
+  console.log('MongoStore: A session was updated');
+});
+sessionStore.on('destroy', function () {
+  console.log('MongoStore: A session was destroyed');
+});
+sessionStore.on('connect', function () {
+  console.log('MongoStore: Successfully connected to MongoDB for sessions.');
+});
+sessionStore.on('error', function (error) {
+  console.error('MongoStore: Error connecting to MongoDB for sessions:', error);
+});
+sessionStore.on('disconnected', function () {
+  console.warn('MongoStore: Disconnected from MongoDB for sessions.');
+});
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secure-admin-key',
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-        mongoUrl: process.env.MONGODB_URI,
-        dbName: 'robolution',
-        collectionName: 'sessions',
-        ttl: 24 * 60 * 60, // Session TTL in seconds (1 day)
-        autoRemove: 'native', // Enable automatic removal of expired sessions
-        crypto: {
-            secret: process.env.SESSION_SECRET || 'your-secure-admin-key'
-        }
-    }),
+    store: sessionStore, // Use the instance here
     cookie: { 
         secure: process.env.NODE_ENV === 'production', // Only use secure cookies in production
         httpOnly: true,
@@ -131,7 +152,8 @@ app.use((req, res, next) => {
         },
         store: {
             type: 'MongoStore',
-            connected: !!req.session?.store
+            // connected: !!req.session?.store // This was not reliable
+            // We will rely on the direct MongoStore events logged above
         }
     });
     next();
