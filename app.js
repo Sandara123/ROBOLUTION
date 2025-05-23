@@ -1230,13 +1230,6 @@ app.get('/edit-post/:id', requireAdmin, async (req, res) => {
     }
 
     if (!post) {
-      // Log the full database structure if still not found
-      console.log('DEBUG: Post still not found, checking database structure...');
-      
-      // Get collection structure
-      const postsSample = await postsCollection.find().limit(1).toArray();
-      console.log('DEBUG: Sample post structure:', JSON.stringify(postsSample, null, 2));
-      
       console.error('DEBUG: Post not found with ID:', req.params.id);
       return res.status(404).send('Post not found');
     }
@@ -1247,98 +1240,111 @@ app.get('/edit-post/:id', requireAdmin, async (req, res) => {
     console.log('DEBUG: Post object structure:', Object.keys(post));
     console.log('DEBUG: Post comments field exists:', post.hasOwnProperty('comments'));
     
+    // Check if comments exist and log their structure
+    let finalComments = [];
     if (post.comments) {
       console.log('DEBUG: Raw comments data:', post.comments);
       console.log('DEBUG: Comments type:', Array.isArray(post.comments) ? 'Array' : typeof post.comments);
       console.log('DEBUG: Comments count:', Array.isArray(post.comments) ? post.comments.length : 'Not an array');
-    }
-    
-    // Fetch comments for the post - ensure post.comments becomes an array of comment objects
-    let fetchedComments = [];
-    
-    if (post.comments && Array.isArray(post.comments) && post.comments.length > 0) {
-      console.log('DEBUG: Fetching', post.comments.length, 'comments');
       
-      // Convert all comment IDs to ObjectId if they're not already
-      const commentIds = post.comments.map(id => {
-        if (typeof id === 'string' && ObjectId.isValid(id)) {
-          return new ObjectId(id);
-        } else if (id instanceof ObjectId) {
-          return id;
-        } else if (id && id._id) {
-          // Handle case where comment might already be a document with _id
-          return id._id;
-        }
-        console.log('DEBUG: Invalid comment ID found:', id);
-        return null;
-      }).filter(id => id !== null);
-      
-      console.log('DEBUG: Processed comment IDs:', commentIds.length);
-
-      if (commentIds.length > 0) {
-        try {
-          fetchedComments = await commentsCollection.find({ _id: { $in: commentIds } }).sort({ createdAt: -1 }).toArray();
-          console.log('DEBUG: Comments found from DB:', fetchedComments.length);
-        } catch (err) {
-          console.error('DEBUG: Error fetching comments:', err);
-        }
-
-        // Populate user information for each comment
-        for (let i = 0; i < fetchedComments.length; i++) {
-          let comment = fetchedComments[i];
-          console.log('DEBUG: Processing comment:', comment._id);
+      // IMPORTANT: Check if comments are already complete objects with needed fields
+      if (Array.isArray(post.comments) && post.comments.length > 0) {
+        // Check the first comment to see if it's already a complete object
+        const firstComment = post.comments[0];
+        if (typeof firstComment === 'object' && firstComment !== null && 
+            (firstComment.text || firstComment.content) && firstComment._id) {
           
-          let authorName = 'Anonymous'; // Default author name
+          console.log('DEBUG: Comments are already embedded objects with text/content fields');
+          // Comments are already complete objects, use them directly
+          finalComments = post.comments;
           
-          try {
-            // Try to get author from user field
-            if (comment.user) {
-              let userId = comment.user;
-              if (typeof userId === 'string' && ObjectId.isValid(userId)) {
-                userId = new ObjectId(userId);
+          // Ensure each comment has a standardized author field
+          for (let i = 0; i < finalComments.length; i++) {
+            let comment = finalComments[i];
+            
+            // If comment has a user object with username, use it
+            if (comment.user && comment.user.username) {
+              comment.author = { 
+                username: comment.user.username,
+                userId: comment.user._id ? comment.user._id.toString() : null
+              };
+            } 
+            // If there's no user object but there's an author field
+            else if (comment.author && comment.author.username) {
+              // Keep existing author object
+            }
+            // Create a default anonymous author as fallback
+            else {
+              comment.author = { username: 'Anonymous' };
+            }
+          }
+        } 
+        // Comments are IDs that need to be looked up
+        else {
+          console.log('DEBUG: Comments appear to be IDs, will fetch from comments collection');
+          
+          // Convert all comment IDs to ObjectId if they're not already
+          const commentIds = post.comments.map(id => {
+            if (typeof id === 'string' && ObjectId.isValid(id)) {
+              return new ObjectId(id);
+            } else if (id instanceof ObjectId) {
+              return id;
+            } else if (id && id._id) {
+              // Handle case where comment might already be a document with _id
+              return id._id;
+            }
+            console.log('DEBUG: Invalid comment ID found:', id);
+            return null;
+          }).filter(id => id !== null);
+          
+          console.log('DEBUG: Processed comment IDs:', commentIds.length);
+
+          if (commentIds.length > 0) {
+            try {
+              const fetchedComments = await commentsCollection.find({ _id: { $in: commentIds } }).sort({ createdAt: -1 }).toArray();
+              console.log('DEBUG: Comments found from DB:', fetchedComments.length);
+              
+              // Populate user information for each comment
+              for (let i = 0; i < fetchedComments.length; i++) {
+                let comment = fetchedComments[i];
+                let authorName = 'Anonymous'; // Default author name
+                
+                try {
+                  // Try to get author from user field
+                  if (comment.user) {
+                    let userId = comment.user;
+                    if (typeof userId === 'string' && ObjectId.isValid(userId)) {
+                      userId = new ObjectId(userId);
+                    }
+                    
+                    const userDoc = await usersCollection.findOne({ _id: userId });
+                    if (userDoc && userDoc.username) {
+                      authorName = userDoc.username;
+                    }
+                  } 
+                  // Fallback to embedded author
+                  else if (comment.author && comment.author.username) {
+                    authorName = comment.author.username;
+                  }
+                } catch (err) {
+                  console.error('DEBUG: Error processing comment author:', err);
+                }
+                
+                // Standardize the author field for template rendering
+                comment.author = { username: authorName };
               }
               
-              const userDoc = await usersCollection.findOne({ _id: userId });
-              if (userDoc && userDoc.username) {
-                authorName = userDoc.username;
-                console.log('DEBUG: Found username from user reference:', authorName);
-              }
-            } 
-            // Fallback to embedded author
-            else if (comment.author && comment.author.username) {
-              authorName = comment.author.username;
-              console.log('DEBUG: Using embedded author username:', authorName);
+              finalComments = fetchedComments;
+            } catch (err) {
+              console.error('DEBUG: Error fetching comments:', err);
             }
-          } catch (err) {
-            console.error('DEBUG: Error processing comment author:', err);
-          }
-          
-          // Standardize the author field for template rendering
-          comment.author = { username: authorName };
-          
-          // Check if the comment has a text field (the actual comment content)
-          if (!comment.text) {
-            console.log('DEBUG: Comment has no text field. Full comment:', comment);
           }
         }
-      }
-    } else if (typeof post.comments === 'string') {
-      // Handle case where comments might be a string (JSON or otherwise)
-      console.log('DEBUG: Comments field is a string:', post.comments);
-      try {
-        const parsedComments = JSON.parse(post.comments);
-        if (Array.isArray(parsedComments)) {
-          console.log('DEBUG: Successfully parsed comments string to array');
-          // Process these comments similar to above
-          fetchedComments = parsedComments;
-        }
-      } catch (err) {
-        console.error('DEBUG: Error parsing comments string:', err);
       }
     }
 
-    // Assign fetched comments to post.comments
-    post.comments = fetchedComments;
+    // Assign final comments to post.comments
+    post.comments = finalComments;
     console.log('DEBUG: Final comments count:', post.comments.length);
 
     // Convert MongoDB document to a JavaScript object
@@ -1355,6 +1361,7 @@ app.get('/edit-post/:id', requireAdmin, async (req, res) => {
     res.render('edit-post', { 
       post: postObject,
       uniqueRegions,
+      user: req.session.user,
       dashboard: isDashboard // Pass dashboard status to the template
     });
   } catch (error) {
