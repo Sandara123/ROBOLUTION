@@ -6146,9 +6146,9 @@ app.post('/api/posts/:id/comment', async (req, res) => {
       post.comments = [];
     }
 
-    // Create a new comment
+    // Create a new comment with a direct ObjectId reference to the user
     const newComment = {
-      user: userId,
+      user: mongoose.Types.ObjectId(userId),
       text: text.trim(),
       createdAt: new Date()
     };
@@ -6194,11 +6194,48 @@ app.get('/post/:id', async (req, res) => {
     const post = await Post.findById(postId)
       .populate({
         path: 'comments.user',
+        model: 'User',
         select: 'username profilePicture'
       });
     
     if (!post) {
       return res.status(404).send('Post not found');
+    }
+    
+    // Ensure all comments have complete user data
+    if (post.comments && post.comments.length > 0) {
+      // Prefetch all users referenced in comments to ensure complete data
+      const userIds = [...new Set(post.comments.map(comment => 
+        comment.user && comment.user._id ? comment.user._id.toString() : null)
+      )].filter(id => id !== null);
+      
+      const users = await User.find({ _id: { $in: userIds } })
+        .select('username profilePicture')
+        .lean();
+      
+      // Create a lookup map for quick access
+      const userMap = {};
+      users.forEach(user => {
+        userMap[user._id.toString()] = user;
+      });
+      
+      // Replace any missing user data in comments
+      post.comments = post.comments.map(comment => {
+        // If user is missing or incomplete, try to get from our prefetched map
+        if (!comment.user || !comment.user.username) {
+          const userId = comment.user && comment.user._id ? comment.user._id.toString() : null;
+          if (userId && userMap[userId]) {
+            comment.user = userMap[userId];
+          } else {
+            // If still no user, provide default values
+            comment.user = {
+              username: 'Anonymous User',
+              profilePicture: '/images/default-profile.png'
+            };
+          }
+        }
+        return comment;
+      });
     }
     
     // Get unique regions with posts for the dropdown menu

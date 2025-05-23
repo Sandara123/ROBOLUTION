@@ -573,10 +573,17 @@
               <% post.comments.forEach(comment => { %>
                 <div class="comment-item">
                   <div class="comment-header">
-                    <img src="<%= comment.user.profilePicture || '/images/default-profile.png' %>" 
-                         alt="<%= comment.user.username %>" class="comment-user-img">
+                    <% 
+                      // Ensure we have valid user data
+                      const commentUser = comment.user || {};
+                      const username = commentUser.username || 'Anonymous User';
+                      const profilePic = commentUser.profilePicture || '/images/default-profile.png';
+                    %>
+                    <img src="<%= profilePic %>" 
+                         alt="<%= username %>" class="comment-user-img" 
+                         onerror="this.src='/images/default-profile.png';">
                     <div>
-                      <div class="comment-user-name"><%= comment.user.username %></div>
+                      <div class="comment-user-name"><%= username %></div>
                       <div class="comment-date"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { 
                         year: 'numeric', 
                         month: 'short', 
@@ -758,15 +765,19 @@
               noComments.remove();
             }
             
-            // Create a new comment element
+            // Create a new comment element with robust data handling
+            const username = data.comment.user?.username || 'Anonymous User';
+            const profilePic = data.comment.user?.profilePicture || '/images/default-profile.png';
+            
             const commentItem = document.createElement('div');
             commentItem.className = 'comment-item';
             commentItem.innerHTML = `
               <div class="comment-header">
-                <img src="${data.comment.user.profilePicture || '/images/default-profile.png'}" 
-                     alt="${data.comment.user.username}" class="comment-user-img">
+                <img src="${profilePic}" 
+                     alt="${username}" class="comment-user-img"
+                     onerror="this.src='/images/default-profile.png';">
                 <div>
-                  <div class="comment-user-name">${data.comment.user.username}</div>
+                  <div class="comment-user-name">${username}</div>
                   <div class="comment-date">${new Date().toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'short',
