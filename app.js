@@ -6417,76 +6417,67 @@ app.delete('/api/comments/:commentId', requireAdmin, async (req, res) => {
     const commentsCollection = robolutionDb.collection('comments');
     const postsCollection = robolutionDb.collection('posts');
 
-    // Find the comment to get the postId for updating the post's comment array
-    console.log('DEBUG: Finding comment in database...');
+    // Check if this is an embedded comment by looking for posts containing it
+    console.log('DEBUG: Checking for embedded comment in posts collection');
+    const postWithEmbeddedComment = await postsCollection.findOne({
+      'comments._id': commentObjectId
+    });
+
+    if (postWithEmbeddedComment) {
+      console.log('DEBUG: Found post with embedded comment:', postWithEmbeddedComment._id);
+      
+      // Remove the embedded comment from the post's comments array
+      const updateResult = await postsCollection.updateOne(
+        { _id: postWithEmbeddedComment._id },
+        { $pull: { comments: { _id: commentObjectId } } }
+      );
+      
+      console.log('DEBUG: Update result for embedded comment removal:', 
+        updateResult.matchedCount ? 'Post matched' : 'Post not matched', 
+        updateResult.modifiedCount ? 'and updated' : 'but NOT updated');
+      
+      return res.json({ success: true, message: 'Embedded comment deleted successfully.' });
+    }
+
+    // If not an embedded comment, look in the separate comments collection
+    console.log('DEBUG: Not an embedded comment, checking dedicated comments collection');
     const commentToDelete = await commentsCollection.findOne({ _id: commentObjectId });
 
     if (!commentToDelete) {
-      console.error('DEBUG: Comment not found in database:', commentId);
+      console.error('DEBUG: Comment not found in either collection:', commentId);
       return res.status(404).json({ success: false, message: 'Comment not found.' });
     }
 
-    console.log('DEBUG: Comment found:', commentToDelete._id);
-    console.log('DEBUG: Comment post reference:', commentToDelete.post);
-    console.log('DEBUG: Comment text:', commentToDelete.text || commentToDelete.content);
+    console.log('DEBUG: Comment found in separate collection:', commentToDelete._id);
+    console.log('DEBUG: Post reference:', commentToDelete.post || commentToDelete.postId);
 
     // Delete the comment document
-    console.log('DEBUG: Deleting comment from comments collection...');
     const deleteResult = await commentsCollection.deleteOne({ _id: commentObjectId });
     console.log('DEBUG: Delete result:', deleteResult);
 
     if (deleteResult.deletedCount === 0) {
-      // Should not happen if findOne found it, but as a safeguard
-      console.error('DEBUG: Failed to delete comment:', commentId);
-      return res.status(404).json({ success: false, message: 'Comment not found or already deleted.' });
+      console.error('DEBUG: Failed to delete comment from collection:', commentId);
+      return res.status(404).json({ success: false, message: 'Failed to delete comment.' });
     }
 
-    // Remove the comment's ObjectId from the corresponding post's 'comments' array
-    // Check which field contains the post reference
-    let postId = null;
-    if (commentToDelete.post) {
-      postId = commentToDelete.post;
-    } else if (commentToDelete.postId) {
-      postId = commentToDelete.postId;
-    }
-
+    // Get the post ID from either the post or postId field
+    let postId = commentToDelete.post || commentToDelete.postId;
+    
     if (postId) {
       console.log('DEBUG: Post reference found. Type:', typeof postId);
       let postIdToUpdate;
       
       if (typeof postId === 'object' && postId instanceof ObjectId) {
         postIdToUpdate = postId;
-        console.log('DEBUG: Using ObjectId directly');
       } else if (typeof postId === 'string' && ObjectId.isValid(postId)) {
         postIdToUpdate = new ObjectId(postId);
-        console.log('DEBUG: Converted string to ObjectId');
       } else {
         console.error('DEBUG: Invalid post ID format in comment:', typeof postId, postId);
-        return res.json({ success: true, message: 'Comment deleted, but post linkage might be inconsistent due to invalid post ID in comment.' });
       }
 
-      try {
-        console.log('DEBUG: Looking up post with ID:', postIdToUpdate);
-        // Find the post document to understand its comments array structure before updating
-        const postDocument = await postsCollection.findOne({ _id: postIdToUpdate });
-        
-        if (postDocument) {
-          console.log('DEBUG: Post found. Comments array type:', typeof postDocument.comments);
-          console.log('DEBUG: Is array?', Array.isArray(postDocument.comments));
-          if (Array.isArray(postDocument.comments)) {
-            console.log('DEBUG: Comments array length:', postDocument.comments.length);
-            // Log a few examples of comment IDs in the array to understand their format
-            if (postDocument.comments.length > 0) {
-              console.log('DEBUG: Sample comment IDs in array:', 
-                postDocument.comments.slice(0, 3).map(id => `${typeof id}: ${id}`));
-            }
-          }
-        } else {
-          console.log('DEBUG: Post not found with ID:', postIdToUpdate);
-        }
-
-        // Update using $pull to remove the comment ID, trying both ObjectId and string formats
-        console.log('DEBUG: Attempting to update post, removing comment ID:', commentId);
+      if (postIdToUpdate) {
+        // Update using $pull to remove the comment ID from the post's comments array
+        console.log('DEBUG: Updating post to remove comment reference');
         const updateResult = await postsCollection.updateOne(
           { _id: postIdToUpdate },
           { $pull: { comments: { $in: [commentObjectId, commentId] } } }
@@ -6494,17 +6485,13 @@ app.delete('/api/comments/:commentId', requireAdmin, async (req, res) => {
 
         console.log('DEBUG: Post update result:', updateResult.matchedCount ? 'Post found' : 'Post not found', 
           updateResult.modifiedCount ? 'and updated' : 'but NOT updated');
-      } catch (err) {
-        console.error('DEBUG: Error updating post:', err);
       }
-    } else {
-      console.warn('DEBUG: Comment deleted but had no associated post ID.');
     }
 
     res.json({ success: true, message: 'Comment deleted successfully.' });
 
   } catch (error) {
-    console.error('Error deleting comment:', error);
+    console.error('DEBUG: Error deleting comment:', error);
     res.status(500).json({ success: false, message: 'Server error while deleting comment.' });
   }
 });
