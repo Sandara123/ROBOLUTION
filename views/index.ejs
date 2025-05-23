@@ -499,6 +499,8 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    const IS_DASHBOARD_VIEW = <%= (typeof locals !== 'undefined' && locals.dashboard) ? 'true' : 'false' %>;
+
     // Handle collapsible sections
     const collapsibles = document.querySelectorAll('.collapsible');
     
@@ -512,7 +514,7 @@
     };
     
     // Check authentication state (only if not in dashboard)
-    if (!<%= typeof locals.dashboard !== 'undefined' && locals.dashboard ? 'true' : 'false' %>) {
+    if (!IS_DASHBOARD_VIEW) {
         function verifySession() {
           fetch('/api/check-session?t=' + new Date().getTime(), { 
             credentials: 'same-origin',
@@ -539,7 +541,7 @@
     }
     
     // Collapsible script (only if not in dashboard, or if dashboard needs it to hide sections other than first)
-    if (!<%= typeof locals.dashboard !== 'undefined' && locals.dashboard ? 'true' : 'false' %>) {
+    if (!IS_DASHBOARD_VIEW) {
         collapsibles.forEach(function(button) {
           button.addEventListener('click', function() {
             this.classList.toggle('active');
@@ -555,7 +557,7 @@
     // Dynamic search functionality
     const searchInput = document.getElementById('searchInput');
     const noPostsMessage = document.getElementById('noPostsMessage');
-    const searchTermDisplay = document.getElementById('searchTerm'); // Corrected variable name
+    const searchTermDisplay = document.getElementById('searchTerm');
     const yearSections = document.querySelectorAll('.year-section');
     
     if(searchInput) { // Ensure search input exists
@@ -590,7 +592,7 @@
             
             if (query === '') { // If search is cleared
                 section.style.display = 'block';
-                if (yearCollapsible && !yearCollapsible.classList.contains('active') && !<%= typeof locals.dashboard !== 'undefined' && locals.dashboard ? 'true' : 'false' %>) {
+                if (yearCollapsible && !yearCollapsible.classList.contains('active') && !IS_DASHBOARD_VIEW) {
                    // If not in dashboard and section wasn't active, keep content hidden by CSS
                 } else {
                    // yearContent.style.display = 'grid'; // Already handled by CSS if active or in dashboard
@@ -600,7 +602,7 @@
                   section.style.display = 'none';
                 } else {
                   section.style.display = 'block';
-                  if (yearCollapsible && !yearCollapsible.classList.contains('active') && !<%= typeof locals.dashboard !== 'undefined' && locals.dashboard ? 'true' : 'false' %>) {
+                  if (yearCollapsible && !yearCollapsible.classList.contains('active') && !IS_DASHBOARD_VIEW) {
                     yearCollapsible.classList.add('active'); // Expand section if it has matches and wasn't active
                   }
                    // yearContent.style.display = 'grid'; // Already handled by CSS
