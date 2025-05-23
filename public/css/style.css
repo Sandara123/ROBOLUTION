@@ -182,27 +182,30 @@ main {
 }
 
 .content {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center; /* center all cards */
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  padding: 20px 0;
+  padding: 20px 15px;
   overflow: hidden;
   max-height: none; /* allow expansion */
+  width: 100%;
 }
 
 .post-card {
   background: #ffffff;
-  padding: 20px;
+  padding: 15px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 450px; 
-  height: 600px; 
+  width: 100%; /* take full width of grid cell */
+  height: auto;
+  min-height: 400px;
+  max-height: 600px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   transition: transform 0.2s;
   hyphens: auto;
+  margin: 0;
 }
 
 .post-card-content {
@@ -862,4 +865,17 @@ button.collapsible.active .arrow {
 .dropdown-content {
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* Responsive grid adjustments */
+@media (max-width: 992px) {
+  .content {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .content {
+    grid-template-columns: 1fr;
+  }
 }

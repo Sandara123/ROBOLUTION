@@ -89,19 +89,22 @@
       max-height: 0;
       overflow: hidden;
       transition: max-height 0.3s ease-out;
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 15px;
+      width: 100%;
     }
   
     .content.visible {
       max-height: 5000px; /* Adjust based on expected max height */
       padding: 15px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
     }
   
     /* Post card styles */
     .post-card {
-      width: calc(33.333% - 20px);
+      width: calc(33.333% - 15px);
       background: white;
       border-radius: 10px;
       overflow: hidden;
@@ -228,14 +231,14 @@
     }
   
     @media screen and (max-width: 992px) {
-      .post-card {
-        width: calc(50% - 10px);
+      .content, .content.visible {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
   
     @media screen and (max-width: 768px) {
-      .post-card {
-        width: 100%;
+      .content, .content.visible {
+        grid-template-columns: 1fr;
       }
   
       .posts-header {
