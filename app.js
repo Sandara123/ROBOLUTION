@@ -1189,93 +1189,176 @@ app.post('/manage-categories/:id/delete-image', async (req, res) => {
 // Route to show edit post page
 app.get('/edit-post/:id', requireAdmin, async (req, res) => {
   // Check if user is logged in and is an admin
-  // This check is now handled by requireAdmin middleware, so it can be commented out or removed
-  /* if (!req.session.user || !req.session.user.isAdmin) {
+  if (!req.session.user || !req.session.user.isAdmin) {
     return res.redirect('/login');
-  } */
+  }
 
   try {
-    console.log('Accessing post for editing, ID:', req.params.id);
+    console.log('DEBUG: Accessing post for editing, ID:', req.params.id);
     
+    // DIRECT COLLECTION ACCESS - bypass Mongoose completely
     const postsCollection = robolutionDb.collection('posts');
     const commentsCollection = robolutionDb.collection('comments');
     const usersCollection = robolutionDb.collection('users');
     const ObjectId = require('mongodb').ObjectId;
+    
+    // Get all posts for regions dropdown using native MongoDB
+    const posts = await postsCollection.find().toArray();
 
-    // Get all posts for regions dropdown (this seems unrelated to fetching a single post for edit, but keeping existing logic)
-    const allPostsForRegions = await postsCollection.find().toArray(); 
-
+    // Try multiple query approaches to find the specific post
     let post = null;
-    const postIdStr = req.params.id;
-
-    // Try to find the post by ID
-    if (ObjectId.isValid(postIdStr)) {
-      post = await postsCollection.findOne({ _id: new ObjectId(postIdStr) });
-      console.log('ObjectId lookup result for post:', post ? 'Found' : 'Not found');
-    } else {
-      // Fallback for non-ObjectId strings, though less likely for _id
-      post = await postsCollection.findOne({ _id: postIdStr });
-      console.log('Direct string ID lookup result for post:', post ? 'Found' : 'Not found');
+    
+    // 1. Try direct string ID lookup
+    post = await postsCollection.findOne({ _id: req.params.id });
+    console.log('DEBUG: Direct string ID lookup result:', post ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!post && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        post = await postsCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('DEBUG: ObjectId lookup result:', post ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('DEBUG: Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by title if still not found
+    if (!post) {
+      // Search by title as a last resort
+      post = await postsCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
+      console.log('DEBUG: Title search result:', post ? 'Found' : 'Not found');
     }
 
     if (!post) {
-      console.error('Post not found with ID:', postIdStr);
+      // Log the full database structure if still not found
+      console.log('DEBUG: Post still not found, checking database structure...');
+      
+      // Get collection structure
+      const postsSample = await postsCollection.find().limit(1).toArray();
+      console.log('DEBUG: Sample post structure:', JSON.stringify(postsSample, null, 2));
+      
+      console.error('DEBUG: Post not found with ID:', req.params.id);
       return res.status(404).send('Post not found');
     }
 
-    // Fetch comments for the post
+    console.log('DEBUG: Post found. Checking for comments...');
+    
+    // Log post structure to debug
+    console.log('DEBUG: Post object structure:', Object.keys(post));
+    console.log('DEBUG: Post comments field exists:', post.hasOwnProperty('comments'));
+    
+    if (post.comments) {
+      console.log('DEBUG: Raw comments data:', post.comments);
+      console.log('DEBUG: Comments type:', Array.isArray(post.comments) ? 'Array' : typeof post.comments);
+      console.log('DEBUG: Comments count:', Array.isArray(post.comments) ? post.comments.length : 'Not an array');
+    }
+    
+    // Fetch comments for the post - ensure post.comments becomes an array of comment objects
+    let fetchedComments = [];
+    
     if (post.comments && Array.isArray(post.comments) && post.comments.length > 0) {
+      console.log('DEBUG: Fetching', post.comments.length, 'comments');
+      
+      // Convert all comment IDs to ObjectId if they're not already
       const commentIds = post.comments.map(id => {
-        if (id instanceof ObjectId) return id;
-        if (ObjectId.isValid(id)) return new ObjectId(id);
-        return null; // Invalid ID
-      }).filter(id => id !== null); // Filter out invalid IDs
+        if (typeof id === 'string' && ObjectId.isValid(id)) {
+          return new ObjectId(id);
+        } else if (id instanceof ObjectId) {
+          return id;
+        } else if (id && id._id) {
+          // Handle case where comment might already be a document with _id
+          return id._id;
+        }
+        console.log('DEBUG: Invalid comment ID found:', id);
+        return null;
+      }).filter(id => id !== null);
+      
+      console.log('DEBUG: Processed comment IDs:', commentIds.length);
 
       if (commentIds.length > 0) {
-        let fetchedComments = await commentsCollection.find({ _id: { $in: commentIds } }).sort({ createdAt: -1 }).toArray();
+        try {
+          fetchedComments = await commentsCollection.find({ _id: { $in: commentIds } }).sort({ createdAt: -1 }).toArray();
+          console.log('DEBUG: Comments found from DB:', fetchedComments.length);
+        } catch (err) {
+          console.error('DEBUG: Error fetching comments:', err);
+        }
 
         // Populate user information for each comment
         for (let i = 0; i < fetchedComments.length; i++) {
           let comment = fetchedComments[i];
+          console.log('DEBUG: Processing comment:', comment._id);
+          
           let authorName = 'Anonymous'; // Default author name
-
-          if (comment.user && ObjectId.isValid(comment.user)) {
-            const userDoc = await usersCollection.findOne({ _id: new ObjectId(comment.user) });
-            if (userDoc && userDoc.username) {
-              authorName = userDoc.username;
+          
+          try {
+            // Try to get author from user field
+            if (comment.user) {
+              let userId = comment.user;
+              if (typeof userId === 'string' && ObjectId.isValid(userId)) {
+                userId = new ObjectId(userId);
+              }
+              
+              const userDoc = await usersCollection.findOne({ _id: userId });
+              if (userDoc && userDoc.username) {
+                authorName = userDoc.username;
+                console.log('DEBUG: Found username from user reference:', authorName);
+              }
+            } 
+            // Fallback to embedded author
+            else if (comment.author && comment.author.username) {
+              authorName = comment.author.username;
+              console.log('DEBUG: Using embedded author username:', authorName);
             }
-          } else if (comment.author && comment.author.username) {
-            // Fallback to embedded author username if `user` field is not present or user not found
-            authorName = comment.author.username;
+          } catch (err) {
+            console.error('DEBUG: Error processing comment author:', err);
           }
-          // Ensure the comment object has a standardized author field for the template
-          comment.author = { username: authorName }; 
+          
+          // Standardize the author field for template rendering
+          comment.author = { username: authorName };
+          
+          // Check if the comment has a text field (the actual comment content)
+          if (!comment.text) {
+            console.log('DEBUG: Comment has no text field. Full comment:', comment);
+          }
         }
-        post.comments = fetchedComments; // Replace IDs with populated comment objects
-      } else {
-        post.comments = []; // No valid comment IDs found
       }
-    } else {
-      post.comments = []; // Ensure post.comments is an empty array if no comments or not an array
+    } else if (typeof post.comments === 'string') {
+      // Handle case where comments might be a string (JSON or otherwise)
+      console.log('DEBUG: Comments field is a string:', post.comments);
+      try {
+        const parsedComments = JSON.parse(post.comments);
+        if (Array.isArray(parsedComments)) {
+          console.log('DEBUG: Successfully parsed comments string to array');
+          // Process these comments similar to above
+          fetchedComments = parsedComments;
+        }
+      } catch (err) {
+        console.error('DEBUG: Error parsing comments string:', err);
+      }
     }
 
-    const postObject = JSON.parse(JSON.stringify(post)); 
+    // Assign fetched comments to post.comments
+    post.comments = fetchedComments;
+    console.log('DEBUG: Final comments count:', post.comments.length);
+
+    // Convert MongoDB document to a JavaScript object
+    const postObject = JSON.parse(JSON.stringify(post));
     
-    const uniqueRegions = [...new Set(allPostsForRegions
+    // Get unique regions from posts
+    const uniqueRegions = [...new Set(posts
       .map(p => p.region)
       .filter(region => region && region !== 'All')
     )].sort();
 
-    const isDashboard = req.query.dashboard === 'true';
+    const isDashboard = req.query.dashboard === 'true'; // Capture dashboard status
 
     res.render('edit-post', { 
-      post: postObject, 
-      user: req.session.user, 
+      post: postObject,
       uniqueRegions,
-      dashboard: isDashboard
+      dashboard: isDashboard // Pass dashboard status to the template
     });
   } catch (error) {
-    console.error('Error finding post or its comments for editing:', error);
+    console.error('DEBUG: Error finding post:', error);
     res.status(500).send('Server error');
   }
 });
@@ -3887,9 +3970,7 @@ app.post('/profile/update', upload.single('profilePicture'), async (req, res) =>
     if (req.file) {
       try {
         const filePath = req.file.path;
-        console.log('Uploading profile picture:', filePath);
         const result = await uploadToCloudinary(filePath, 'robolution/profiles');
-        console.log('Cloudinary upload successful:', result);
         user.profilePicture = result;
       } catch (uploadError) {
         console.error('Error uploading to Cloudinary:', uploadError);
@@ -6313,50 +6394,104 @@ app.get('/user-landing', async (req, res) => {
 app.delete('/api/comments/:commentId', requireAdmin, async (req, res) => {
   try {
     const { commentId } = req.params;
+    console.log('DEBUG: Attempting to delete comment:', commentId);
+    
     const ObjectId = require('mongodb').ObjectId;
+    let commentObjectId;
 
+    // Validate the commentId format
     if (!ObjectId.isValid(commentId)) {
+      console.error('DEBUG: Invalid comment ID format:', commentId);
       return res.status(400).json({ success: false, message: 'Invalid comment ID format.' });
+    } else {
+      commentObjectId = new ObjectId(commentId);
     }
 
     const commentsCollection = robolutionDb.collection('comments');
     const postsCollection = robolutionDb.collection('posts');
 
     // Find the comment to get the postId for updating the post's comment array
-    const commentToDelete = await commentsCollection.findOne({ _id: new ObjectId(commentId) });
+    console.log('DEBUG: Finding comment in database...');
+    const commentToDelete = await commentsCollection.findOne({ _id: commentObjectId });
 
     if (!commentToDelete) {
+      console.error('DEBUG: Comment not found in database:', commentId);
       return res.status(404).json({ success: false, message: 'Comment not found.' });
     }
 
+    console.log('DEBUG: Comment found:', commentToDelete._id);
+    console.log('DEBUG: Comment post reference:', commentToDelete.post);
+    console.log('DEBUG: Comment text:', commentToDelete.text || commentToDelete.content);
+
     // Delete the comment document
-    const deleteResult = await commentsCollection.deleteOne({ _id: new ObjectId(commentId) });
+    console.log('DEBUG: Deleting comment from comments collection...');
+    const deleteResult = await commentsCollection.deleteOne({ _id: commentObjectId });
+    console.log('DEBUG: Delete result:', deleteResult);
 
     if (deleteResult.deletedCount === 0) {
       // Should not happen if findOne found it, but as a safeguard
+      console.error('DEBUG: Failed to delete comment:', commentId);
       return res.status(404).json({ success: false, message: 'Comment not found or already deleted.' });
     }
 
     // Remove the comment's ObjectId from the corresponding post's 'comments' array
-    // Ensure commentToDelete.post is a valid ObjectId before using it to update the postsCollection
+    // Check which field contains the post reference
+    let postId = null;
     if (commentToDelete.post) {
-        let postIdToUpdate;
-        if (commentToDelete.post instanceof ObjectId) {
-            postIdToUpdate = commentToDelete.post;
-        } else if (ObjectId.isValid(commentToDelete.post.toString())) {
-            postIdToUpdate = new ObjectId(commentToDelete.post.toString());
+      postId = commentToDelete.post;
+    } else if (commentToDelete.postId) {
+      postId = commentToDelete.postId;
+    }
+
+    if (postId) {
+      console.log('DEBUG: Post reference found. Type:', typeof postId);
+      let postIdToUpdate;
+      
+      if (typeof postId === 'object' && postId instanceof ObjectId) {
+        postIdToUpdate = postId;
+        console.log('DEBUG: Using ObjectId directly');
+      } else if (typeof postId === 'string' && ObjectId.isValid(postId)) {
+        postIdToUpdate = new ObjectId(postId);
+        console.log('DEBUG: Converted string to ObjectId');
+      } else {
+        console.error('DEBUG: Invalid post ID format in comment:', typeof postId, postId);
+        return res.json({ success: true, message: 'Comment deleted, but post linkage might be inconsistent due to invalid post ID in comment.' });
+      }
+
+      try {
+        console.log('DEBUG: Looking up post with ID:', postIdToUpdate);
+        // Find the post document to understand its comments array structure before updating
+        const postDocument = await postsCollection.findOne({ _id: postIdToUpdate });
+        
+        if (postDocument) {
+          console.log('DEBUG: Post found. Comments array type:', typeof postDocument.comments);
+          console.log('DEBUG: Is array?', Array.isArray(postDocument.comments));
+          if (Array.isArray(postDocument.comments)) {
+            console.log('DEBUG: Comments array length:', postDocument.comments.length);
+            // Log a few examples of comment IDs in the array to understand their format
+            if (postDocument.comments.length > 0) {
+              console.log('DEBUG: Sample comment IDs in array:', 
+                postDocument.comments.slice(0, 3).map(id => `${typeof id}: ${id}`));
+            }
+          }
         } else {
-            console.error('Invalid post ID in comment document:', commentToDelete.post);
-            // Optionally, still consider the comment deleted but log the issue with updating the post
-            return res.json({ success: true, message: 'Comment deleted, but post linkage might be inconsistent due to invalid post ID in comment.' });
+          console.log('DEBUG: Post not found with ID:', postIdToUpdate);
         }
 
-        await postsCollection.updateOne(
-            { _id: postIdToUpdate },
-            { $pull: { comments: new ObjectId(commentId) } } 
+        // Update using $pull to remove the comment ID, trying both ObjectId and string formats
+        console.log('DEBUG: Attempting to update post, removing comment ID:', commentId);
+        const updateResult = await postsCollection.updateOne(
+          { _id: postIdToUpdate },
+          { $pull: { comments: { $in: [commentObjectId, commentId] } } }
         );
+
+        console.log('DEBUG: Post update result:', updateResult.matchedCount ? 'Post found' : 'Post not found', 
+          updateResult.modifiedCount ? 'and updated' : 'but NOT updated');
+      } catch (err) {
+        console.error('DEBUG: Error updating post:', err);
+      }
     } else {
-        console.warn(`Comment ${commentId} deleted, but it had no associated post ID.`);
+      console.warn('DEBUG: Comment deleted but had no associated post ID.');
     }
 
     res.json({ success: true, message: 'Comment deleted successfully.' });

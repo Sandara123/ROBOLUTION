@@ -366,12 +366,12 @@
 
     <% if (post.comments && post.comments.length > 0) { %>
     <section class="comments-section">
-      <h3>Manage Comments</h3>
+      <h3>Manage Comments (<%= post.comments.length %>)</h3>
       <div id="commentsListContainer">
         <% post.comments.forEach(comment => { %>
           <div class="comment-item" id="comment-<%= comment._id %>">
             <p class="comment-author"><strong><%= comment.author && comment.author.username ? comment.author.username : 'Anonymous' %>:</strong></p>
-            <p class="comment-text"><%= comment.text %></p>
+            <p class="comment-text"><%= comment.text || (comment.content ? comment.content : 'No comment text available') %></p>
             <p class="comment-date"><%= new Date(comment.createdAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) %></p>
             <button class="delete-comment-btn" data-comment-id="<%= comment._id %>">Delete Comment</button>
           </div>
@@ -382,6 +382,7 @@
     <section class="comments-section">
       <h3>Comments</h3>
       <p>No comments yet for this post.</p>
+      <div style="color: #666; margin-top: 10px;"><em>Debug info: post.comments is <%= typeof post.comments %>, length: <%= Array.isArray(post.comments) ? post.comments.length : 'N/A' %></em></div>
     </section>
     <% } %>
 
