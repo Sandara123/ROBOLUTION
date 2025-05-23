@@ -370,7 +370,7 @@
       <div id="commentsListContainer">
         <% post.comments.forEach(comment => { %>
           <div class="comment-item" id="comment-<%= comment._id %>">
-            <p class="comment-author"><strong><%= comment.user ? comment.user.username : (comment.author && comment.author.username ? comment.author.username : 'Anonymous') %>:</strong></p>
+            <p class="comment-author"><strong><%= comment.author && comment.author.username ? comment.author.username : 'Anonymous' %>:</strong></p>
             <p class="comment-text"><%= comment.text %></p>
             <p class="comment-date"><%= new Date(comment.createdAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) %></p>
             <button class="delete-comment-btn" data-comment-id="<%= comment._id %>">Delete Comment</button>
