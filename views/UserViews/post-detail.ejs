@@ -577,11 +577,12 @@
                       // Ensure we have valid user data
                       const commentUser = comment.user || {};
                       const username = commentUser.username || 'Anonymous User';
-                      const profilePic = commentUser.profilePicture || '/images/default-profile.png';
+                      // Use the default profile picture passed from the controller
+                      const profilePic = commentUser.profilePicture || defaultProfilePicture;
                     %>
                     <img src="<%= profilePic %>" 
                          alt="<%= username %>" class="comment-user-img" 
-                         onerror="this.src='/images/default-profile.png';">
+                         onerror="this.src='<%= defaultProfilePicture %>';">
                     <div>
                       <div class="comment-user-name"><%= username %></div>
                       <div class="comment-date"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { 
@@ -767,7 +768,9 @@
             
             // Create a new comment element with robust data handling
             const username = data.comment.user?.username || 'Anonymous User';
-            const profilePic = data.comment.user?.profilePicture || '/images/default-profile.png';
+            // Use a constant for default profile picture
+            const defaultProfilePic = '/images/default-user.png';
+            const profilePic = data.comment.user?.profilePicture || defaultProfilePic;
             
             const commentItem = document.createElement('div');
             commentItem.className = 'comment-item';
@@ -775,7 +778,7 @@
               <div class="comment-header">
                 <img src="${profilePic}" 
                      alt="${username}" class="comment-user-img"
-                     onerror="this.src='/images/default-profile.png';">
+                     onerror="this.src='${defaultProfilePic}';">
                 <div>
                   <div class="comment-user-name">${username}</div>
                   <div class="comment-date">${new Date().toLocaleDateString('en-US', {

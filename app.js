@@ -23,7 +23,6 @@ const qrcode = require('qrcode');
 const { exec } = require('child_process'); // For executing system commands
 const { ObjectId } = require('mongodb'); // Added for ObjectId usage
 const axios = require('axios');
-const MongoStore = require('connect-mongo');
 
 // Try to load connect-flash if available, but don't fail if it's not
 let flash;
@@ -37,6 +36,8 @@ try {
 // Define Admin model placeholder
 // Note: The actual Admin model is defined after database connection setup
 const cloudinary = require('cloudinary').v2; // Add Cloudinary
+const MongoStore = require('connect-mongo');
+const speakeasy = require('speakeasy');
 
 // Trust proxy - required for secure cookies in production
 if (process.env.NODE_ENV === 'production') {
@@ -85,43 +86,21 @@ if (!uri) {
 let db; // For adminDB access
 let robolutionDb; // For direct robolution database access
 
-console.log('MongoDB URI from environment variable:', process.env.MONGODB_URI); // Log the URI
-
-const sessionStore = MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI,
-    dbName: 'robolution',
-    collectionName: 'sessions',
-    ttl: 24 * 60 * 60, // Session TTL in seconds (1 day)
-    autoRemove: 'native', // Enable automatic removal of expired sessions
-    crypto: {
-        secret: process.env.SESSION_SECRET || 'your-secure-admin-key'
-    }
-});
-
-sessionStore.on('create', function () {
-  console.log('MongoStore: A session was created');
-});
-sessionStore.on('update', function () {
-  console.log('MongoStore: A session was updated');
-});
-sessionStore.on('destroy', function () {
-  console.log('MongoStore: A session was destroyed');
-});
-sessionStore.on('connect', function () {
-  console.log('MongoStore: Successfully connected to MongoDB for sessions.');
-});
-sessionStore.on('error', function (error) {
-  console.error('MongoStore: Error connecting to MongoDB for sessions:', error);
-});
-sessionStore.on('disconnected', function () {
-  console.warn('MongoStore: Disconnected from MongoDB for sessions.');
-});
-
+// Set up session middleware before routes
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secure-admin-key',
     resave: false,
     saveUninitialized: false,
-    store: sessionStore, // Use the instance here
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        dbName: 'robolution',
+        collectionName: 'sessions',
+        ttl: 24 * 60 * 60, // Session TTL in seconds (1 day)
+        autoRemove: 'native', // Enable automatic removal of expired sessions
+        crypto: {
+            secret: process.env.SESSION_SECRET || 'your-secure-admin-key'
+        }
+    }),
     cookie: { 
         secure: process.env.NODE_ENV === 'production', // Only use secure cookies in production
         httpOnly: true,
@@ -152,8 +131,7 @@ app.use((req, res, next) => {
         },
         store: {
             type: 'MongoStore',
-            // connected: !!req.session?.store // This was not reliable
-            // We will rely on the direct MongoStore events logged above
+            connected: !!req.session?.store
         }
     });
     next();
@@ -6168,38 +6146,25 @@ app.post('/api/posts/:id/comment', async (req, res) => {
       post.comments = [];
     }
 
-    // Create a new comment with a direct ObjectId reference to the user
+    // Create a new comment - embed essential user data directly
     const newComment = {
-      user: new mongoose.Types.ObjectId(userId),
+      user: {
+        _id: user._id,
+        username: user.username,
+        profilePicture: user.profilePicture || null  // Don't set default image URL here
+      },
       text: text.trim(),
       createdAt: new Date()
     };
 
     // Add comment to post
     post.comments.unshift(newComment); // Add to the beginning of the array
-
-    // Log the state before saving
-    console.log('Attempting to save post with new comment:');
-    console.log('Post ID:', postId);
-    console.log('User ID for comment:', userId);
-    console.log('New Comment Object:', JSON.stringify(newComment, null, 2));
-    // console.log('Post Object before save:', JSON.stringify(post, null, 2)); // Can be very verbose
-
     await post.save();
 
-    // Format the response with user details
-    const commentResponse = {
-      ...newComment,
-      user: {
-        _id: user._id,
-        username: user.username,
-        profilePicture: user.profilePicture || '/images/default-profile.png'
-      }
-    };
-
+    // Return the comment with the same structure as saved
     res.json({ 
       success: true, 
-      comment: commentResponse
+      comment: newComment
     });
   } catch (error) {
     console.error('Error adding comment:', error);
@@ -6218,46 +6183,35 @@ app.get('/api/check-session', (req, res) => {
   res.json({ authenticated: false });
 });
 
-// Update the post detail route to populate comments with user info
+// Update the post detail route to handle comments with embedded user data
 app.get('/post/:id', async (req, res) => {
   try {
     const postId = req.params.id;
     
-    // Find the post and populate the comments with user info
-    const post = await Post.findById(postId)
-      .populate({
-        path: 'comments.user',
-        model: 'User',
-        select: 'username profilePicture'
-      });
+    // Find the post - no need to populate since user data is embedded
+    const post = await Post.findById(postId);
     
     if (!post) {
       return res.status(404).send('Post not found');
     }
     
-    console.log('Comments after populate:', JSON.stringify(post.comments, null, 2)); // Log after populate
-
-    // Ensure all comments have complete user data
+    // Process comments to ensure profilePicture has a value
     if (post.comments && post.comments.length > 0) {
-      post.comments = post.comments.map(comment => {
-        if (!comment.user || !comment.user.username) {
-          // If user is not populated or username is missing, set to Anonymous
-          // This can happen if the user was deleted or population failed for some reason
-          console.warn(`User data missing for comment by user ID: ${comment.user ? comment.user._id : 'N/A'}. Setting to Anonymous.`);
+      post.comments.forEach(comment => {
+        // If user is missing entirely, set to Anonymous
+        if (!comment.user) {
           comment.user = {
             username: 'Anonymous User',
-            profilePicture: '/images/default-profile.png',
-            _id: null // Or a specific placeholder ID if needed elsewhere
+            profilePicture: null
           };
-        } else {
-          // Ensure profilePicture has a fallback if it's missing from the populated user
-          comment.user.profilePicture = comment.user.profilePicture || '/images/default-profile.png';
         }
-        return comment;
+        // If username is missing, set to Anonymous
+        else if (!comment.user.username) {
+          comment.user.username = 'Anonymous User';
+        }
+        // Don't set default profile picture path here
       });
     }
-
-    console.log('Comments after mapping:', JSON.stringify(post.comments, null, 2)); // Log after mapping
     
     // Get unique regions with posts for the dropdown menu
     const allPosts = await Post.find({ region: { $ne: null } });
@@ -6267,7 +6221,7 @@ app.get('/post/:id', async (req, res) => {
       post,
       uniqueRegions,
       user: req.session.user || null,
-      req
+      defaultProfilePicture: '/images/default-user.png'  // Pass default image path to the template
     });
   } catch (error) {
     console.error('Error fetching post:', error);
