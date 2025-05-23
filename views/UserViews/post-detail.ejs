@@ -318,6 +318,188 @@
         padding: 6px 12px;
       }
     }
+
+    /* Basic styles for post detail page */
+    .post-detail-container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .post-image-detail {
+      width: 100%;
+      max-height: 500px;
+      object-fit: cover;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .post-content-detail {
+      line-height: 1.8;
+      color: #333;
+      text-align: justify; /* Justify text for better readability */
+      white-space: pre-wrap; /* Preserve line breaks from content */
+    }
+    .post-meta-detail {
+      font-size: 0.9rem;
+      color: #777;
+      margin-bottom: 15px;
+    }
+    .back-button {
+      display: inline-block;
+      padding: 10px 15px;
+      background-color: #00008b; /* Dark blue */
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      transition: background-color 0.3s ease;
+    }
+    .back-button:hover {
+      background-color: #0000cd; /* Medium blue */
+    }
+
+    /* Upvote and Comment Section Styles */
+    .interactions-section {
+      margin-top: 30px;
+      border-top: 1px solid #eee;
+      padding-top: 20px;
+    }
+    .upvote-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .upvote-button {
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .upvote-button.upvoted {
+      background-color: #007bff; /* Blue when upvoted */
+      color: white;
+      border-color: #007bff;
+    }
+    .upvote-button:disabled {
+      background-color: #e9ecef;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+    .upvote-count {
+      font-size: 1rem;
+      color: #555;
+    }
+
+    .comments-container {
+      margin-top: 20px;
+    }
+    .comments-container h3 {
+      margin-bottom: 15px;
+      color: #333;
+      font-size: 1.4rem;
+    }
+    .comment {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f9f9f9;
+      border-radius: 6px;
+      border: 1px solid #eaeaea;
+    }
+    .comment-author-img {
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .comment-content {
+      flex-grow: 1;
+    }
+    .comment-author {
+      font-weight: bold;
+      color: #0056b3;
+      margin-bottom: 5px;
+    }
+    .comment-text {
+      font-size: 0.95rem;
+      color: #444;
+      line-height: 1.6;
+      word-wrap: break-word; /* Ensure long words don't break layout */
+      white-space: pre-wrap; /* Preserve line breaks in comments */
+    }
+    .comment-date {
+      font-size: 0.8rem;
+      color: #888;
+      margin-top: 8px;
+    }
+    .comment-form textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      min-height: 80px;
+      margin-bottom: 10px;
+      font-size: 1rem;
+      box-sizing: border-box; /* Ensures padding doesn't increase width */
+    }
+    .comment-form button {
+      background-color: #28a745; /* Green */
+      color: white;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s ease;
+    }
+    .comment-form button:hover {
+      background-color: #218838; /* Darker green */
+    }
+    .comment-form button:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+    .no-comments {
+      color: #777;
+      font-style: italic;
+    }
+    .login-prompt {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #fff3cd; /* Light yellow */
+      border: 1px solid #ffeeba;
+      color: #856404;
+      border-radius: 4px;
+    }
+    .login-prompt a {
+      color: #0056b3;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .login-prompt a:hover {
+      text-decoration: underline;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .post-detail-container {
+        padding: 15px;
+      }
+      .comment {
+        padding: 10px;
+      }
+      .comment-author-img {
+        width: 35px;
+        height: 35px;
+      }
+    }
   </style>
 </head>
 
@@ -363,45 +545,70 @@
     </div>
   </header>
 
-  <main>
-    <div class="post-detail-container">
-      <div class="post-header">
-        <h1 class="post-title"><%= post.title %></h1>
-        <div class="post-meta">
-          <div class="post-meta-item">
-            <span><strong>Author:</strong> <%= post.author %></span>
-          </div>
-          <div class="post-meta-item">
-            <span><strong>Posted:</strong> <%= new Date(post.createdAt).toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            }) %></span>
-          </div>
-          <% if (post.region && post.region !== 'All') { %>
-          <div class="post-meta-item">
-            <span><strong>Region:</strong> <span class="post-region"><%= post.region %></span></span>
-          </div>
+  <main class="post-detail-container">
+    <a href="/user-landing" class="back-button">&laquo; Back to News</a>
+    
+    <h1><%- post.title %></h1>
+    <p class="post-meta-detail">
+      By <%= post.author %> on <%= new Date(post.createdAt).toLocaleDateString() %>
+      <% if (post.region && post.region !== 'All') { %>
+        | Region: <%= post.region %>
+      <% } %>
+    </p>
+
+    <% if (post.imageUrl && post.imageUrl !== '/images/default-post.jpg') { %>
+      <img src="<%= post.imageUrl %>" alt="<%- post.title %>" class="post-image-detail">
+    <% } %>
+
+    <!-- Upvote and Comment Section -->
+    <div class="interactions-section">
+      <div class="upvote-section">
+        <button class="upvote-button <%= userHasUpvoted ? 'upvoted' : '' %>" 
+                id="upvoteBtn" 
+                data-post-id="<%= post._id %>"
+                <%- !req.session.user ? 'disabled' : '' %>>
+          <i class="fas fa-thumbs-up"></i> Upvote
+        </button>
+        <span class="upvote-count" id="upvoteCount"><%= post.upvotes ? post.upvotes.length : 0 %> Upvotes</span>
+      </div>
+
+      <div class="comments-container">
+        <h3>Comments (<span id="commentCount"><%= post.comments ? post.comments.length : 0 %></span>)</h3>
+        <% if (req.session.user) { %>
+          <form class="comment-form" id="commentForm" data-post-id="<%= post._id %>">
+            <textarea name="commentText" id="commentText" placeholder="Write a comment..." required></textarea>
+            <button type="submit">Post Comment</button>
+          </form>
+        <% } else { %>
+          <p class="login-prompt">
+            Please <a href="/login?redirect=<%= encodeURIComponent(req.originalUrl) %>">login</a> or <a href="/signup?redirect=<%= encodeURIComponent(req.originalUrl) %>">sign up</a> to comment and upvote.
+          </p>
+        <% } %>
+
+        <div id="commentsList">
+          <% if (post.comments && post.comments.length > 0) { %>
+            <% post.comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(comment => { %> 
+              <div class="comment" id="comment-<%= comment._id %>">
+                <img src="<%= comment.profilePicture || '/images/default-profile.jpg' %>" alt="<%- comment.username %>" class="comment-author-img">
+                <div class="comment-content">
+                  <p class="comment-author"><%- comment.username %></p>
+                  <p class="comment-text"><%- comment.text %></p> 
+                  <p class="comment-date"><%= moment(comment.createdAt).fromNow() %></p>
+                </div>
+              </div>
+            <% }) %>
+          <% } else { %>
+            <p class="no-comments" id="noCommentsMsg">No comments yet. Be the first to comment!</p>
           <% } %>
         </div>
       </div>
-      
-      <img src="<%= post.imageUrl %>" alt="<%= post.title %>" class="post-image">
-      
-      <div class="post-content">
-        <p><%= post.content %></p>
-      </div>
-      
-      <a href="/user-landing" class="back-button">← Back to Posts</a>
-      
-      <div class="share-section">
-        <h3 class="share-title">Share this post</h3>
-        <div class="share-buttons">
-          <a href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(`http://${req.headers.host}${req.url}`) %>" target="_blank" class="share-button share-facebook">Facebook</a>
-          <a href="https://twitter.com/intent/tweet?url=<%= encodeURIComponent(`http://${req.headers.host}${req.url}`) %>&text=<%= encodeURIComponent(post.title) %>" target="_blank" class="share-button share-twitter">Twitter</a>
-          <a href="https://www.linkedin.com/shareArticle?mini=true&url=<%= encodeURIComponent(`http://${req.headers.host}${req.url}`) %>&title=<%= encodeURIComponent(post.title) %>" target="_blank" class="share-button share-linkedin">LinkedIn</a>
-        </div>
-      </div>
+    </div>
+    <!-- End of Interactions Section -->
+    
+    <hr style="margin: 30px 0;"> <!-- Separator before post content -->
+
+    <div class="post-content-detail">
+      <%- post.content %> 
     </div>
   </main>
 
@@ -471,6 +678,118 @@
     
     // Run on page load
     checkLoginStatus();
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const upvoteBtn = document.getElementById('upvoteBtn');
+    const upvoteCountSpan = document.getElementById('upvoteCount');
+    const commentForm = document.getElementById('commentForm');
+    const commentsList = document.getElementById('commentsList');
+    const commentCountSpan = document.getElementById('commentCount');
+    const noCommentsMsg = document.getElementById('noCommentsMsg');
+    const commentTextarea = document.getElementById('commentText');
+
+    // Upvote functionality
+    if (upvoteBtn) {
+      upvoteBtn.addEventListener('click', async function() {
+        if (this.disabled) return; 
+        const postId = this.dataset.postId;
+        try {
+          const response = await fetch(`/post/${postId}/upvote`, { method: 'POST' });
+          const data = await response.json();
+          if (data.success) {
+            upvoteCountSpan.textContent = `${data.upvotes} Upvotes`;
+            this.classList.toggle('upvoted'); 
+          } else {
+            alert(data.message || 'Failed to upvote. Please try again.');
+          }
+        } catch (error) {
+          console.error('Error upvoting:', error);
+          alert('An error occurred while upvoting.');
+        }
+      });
+    }
+
+    // Comment functionality
+    if (commentForm) {
+      commentForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        const postId = this.dataset.postId;
+        const commentText = commentTextarea.value.trim();
+
+        if (!commentText) {
+          alert('Comment cannot be empty.');
+          return;
+        }
+
+        try {
+          const response = await fetch(`/post/${postId}/comment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: commentText })
+          });
+          const data = await response.json();
+
+          if (data.success && data.comment) {
+            const newComment = data.comment;
+            const commentDiv = document.createElement('div');
+            commentDiv.classList.add('comment');
+            commentDiv.id = `comment-${newComment._id}`;
+            
+            // Sanitize text content before inserting as HTML
+            const sanitizedUsername = newComment.username.replace(/[&<>'"/]/g, function (s) {
+              return {
+                  '&': '&amp;',
+                  '<': '&lt;',
+                  '>': '&gt;',
+                  '"': '&quot;',
+                  "'": '&#39;',
+                  '/': '&#x2F;'
+              }[s];
+            });
+            const sanitizedText = newComment.text.replace(/[&<>'"/]/g, function (s) {
+               return {
+                  '&': '&amp;',
+                  '<': '&lt;',
+                  '>': '&gt;',
+                  '"': '&quot;',
+                  "'": '&#39;',
+                  '/': '&#x2F;'
+              }[s];
+            }).replace(/\n/g, '<br>'); // Also handle line breaks
+
+            commentDiv.innerHTML = `
+              <img src="${newComment.profilePicture || '/images/default-profile.jpg'}" alt="${sanitizedUsername}" class="comment-author-img">
+              <div class="comment-content">
+                <p class="comment-author">${sanitizedUsername}</p>
+                <p class="comment-text">${sanitizedText}</p>
+                <p class="comment-date">${newComment.createdAtFormatted}</p>
+              </div>
+            `;
+            
+            if (commentsList.firstChild) {
+              commentsList.insertBefore(commentDiv, commentsList.firstChild);
+            } else {
+              commentsList.appendChild(commentDiv);
+            }
+            
+            commentTextarea.value = ''; 
+            
+            const currentCount = parseInt(commentCountSpan.textContent);
+            commentCountSpan.textContent = currentCount + 1;
+
+            if (noCommentsMsg) {
+              noCommentsMsg.style.display = 'none';
+            }
+          } else {
+            alert(data.message || 'Failed to post comment. Please try again.');
+          }
+        } catch (error) {
+          console.error('Error posting comment:', error);
+          alert('An error occurred while posting your comment.');
+        }
+      });
+    }
   });
 </script>
 </body>

@@ -84,7 +84,7 @@
     .post-img {
       width: 100%;
       height: 100%;
-      object-fit: fit;
+      object-fit: cover; /* Changed from 'fit' to 'cover' */
       border-radius: 0;
       margin: 0;
       transition: filter 0.3s ease;
@@ -185,7 +185,7 @@
     }
     
     /* Header styling */
-    .posts-header h2 {
+    .posts-header h2, .trending-header h2 {
       color: #00008b;
       text-shadow: none;
     }
@@ -239,6 +239,75 @@
       font-style: italic;
       text-align: center;
     }
+
+    /* Trending Posts Section Styles */
+    .trending-section {
+      margin-bottom: 40px;
+      padding: 0 20px; /* Add padding to match .posts-grid */
+      max-width: 1440px; /* Match .posts-grid */
+      margin-left: auto; /* Center the section */
+      margin-right: auto; /* Center the section */
+    }
+    .trending-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .trending-posts-scroller {
+      position: relative;
+      overflow: hidden; /* Hide scrollbar, navigation handled by buttons */
+    }
+    .trending-posts-grid {
+      display: flex; /* Use flex for horizontal scrolling */
+      gap: 40px;
+      padding-bottom: 20px; /* For shadow visibility */
+      overflow-x: auto; /* Fallback if JS fails, but ideally hidden */
+      scroll-behavior: smooth;
+      /* Hide scrollbar for a cleaner look - handled by JS navigation */
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+    .trending-posts-grid::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+    }
+    .trending-posts-grid .post-card {
+      flex: 0 0 calc(33.333% - 27px); /* Approx 1/3 width, adjust gap (40px * 2/3) */
+      max-width: calc(33.333% - 27px);
+      /* Ensure post-card styling is consistent */
+    }
+    .scroll-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background-color: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: none;
+      padding: 10px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      z-index: 10;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.3s ease;
+    }
+    .scroll-arrow:hover {
+      background-color: rgba(0, 0, 0, 0.8);
+    }
+    .scroll-arrow.left {
+      left: -5px; /* Adjust for better visibility */
+    }
+    .scroll-arrow.right {
+      right: -5px; /* Adjust for better visibility */
+    }
+    .scroll-arrow:disabled {
+        background-color: rgba(0, 0, 0, 0.2);
+        cursor: not-allowed;
+    }
     
     /* Responsive grid adjustments */
     @media (max-width: 1400px) {
@@ -246,7 +315,10 @@
         grid-template-columns: repeat(2, 1fr);
         max-width: 1100px;
       }
-      
+      .trending-posts-grid .post-card {
+        flex-basis: calc(50% - 20px); /* Adjust for 2 items */
+        max-width: calc(50% - 20px);
+      }
       .post-card {
         height: 360px;
       }
@@ -258,15 +330,27 @@
         max-width: 600px;
         gap: 35px;
       }
-      
+      .trending-posts-grid .post-card {
+        flex-basis: calc(100% - 0px); /* Full width for single item scrolling */
+        max-width: calc(100% - 0px);
+      }
       .post-card {
         height: 400px;
+      }
+      .scroll-arrow {
+        padding: 8px;
+        font-size: 1.2rem;
+        width: 35px;
+        height: 35px;
       }
     }
     
     @media (max-width: 640px) {
       .post-card {
         height: 320px;
+      }
+      .trending-posts-grid .post-card {
+        /* Already full width from 900px breakpoint */
       }
     }
     
@@ -304,13 +388,13 @@
         max-width: 90%;
       }
       
-      .posts-header {
+      .posts-header, .trending-header {
         flex-direction: column;
         align-items: flex-start;
         padding: 10px 15px;
       }
       
-      .posts-header h2 {
+      .posts-header h2, .trending-header h2 {
         margin-bottom: 15px;
         font-size: 1.5rem;
       }
@@ -330,8 +414,9 @@
         padding: 8px;
       }
       
-      .year-section {
+      .year-section, .trending-section {
         margin-bottom: 25px;
+        padding: 0 15px; /* Consistent padding */
       }
       
       .collapsible {
@@ -380,7 +465,7 @@
         padding: 10px 12px;
       }
       
-      .posts-header h2 {
+      .posts-header h2, .trending-header h2 {
         font-size: 1.3rem;
       }
       
@@ -450,6 +535,31 @@
       <img src="/images/News and Updates.png" alt="News and Updates" class="NandU-banner">
     </div>
 
+    <!-- Trending Posts Section -->
+    <% if (locals.trendingPosts && trendingPosts.length > 0) { %>
+      <div class="trending-section">
+        <div class="trending-header">
+          <h2>Trending Posts</h2>
+        </div>
+        <div class="trending-posts-scroller">
+          <button class="scroll-arrow left" id="scrollLeftBtn" aria-label="Scroll Left"><i class="fas fa-chevron-left"></i></button>
+          <div class="trending-posts-grid" id="trendingGrid">
+            <% trendingPosts.forEach(post => { %>
+              <a href="/post/<%= post._id %>" class="post-card">
+                <img src="<%= post.imageUrl || '/images/default-post.jpg' %>" alt="<%= post.title %>" class="post-img">
+                <div class="post-overlay">
+                  <h3 class="post-title" style="color: #ffffff !important;"><%= post.title %></h3>
+                  <p class="post-date" style="color: #ffffff !important;"><%= new Date(post.createdAt).toLocaleDateString() %></p>
+                </div>
+              </a>
+            <% }) %>
+          </div>
+          <button class="scroll-arrow right" id="scrollRightBtn" aria-label="Scroll Right"><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+    <% } %>
+    <!-- End Trending Posts Section -->
+
     <div class="posts-header">
       <h2>Posts by Year</h2>
       <form method="GET" action="/user-landing" class="sort-form">
@@ -472,11 +582,11 @@
       <% return sort === 'asc' ? a - b : b - a; %>
     <% }).forEach(year => { %>
       <div class="year-section">
-        <button class="collapsible"><%= year %> <span class="arrow">▼</span></button>
+        <button class="collapsible"><%= year %></button> <!-- Removed arrow span, handled by ::after -->
         <div class="posts-grid" style="display: none;">
           <% years[year].forEach(post => { %>
             <a href="/post/<%= post._id %>" class="post-card">
-              <img src="<%= post.imageUrl %>" alt="<%= post.title %>" class="post-img">
+              <img src="<%= post.imageUrl || '/images/default-post.jpg' %>" alt="<%= post.title %>" class="post-img">
               <div class="post-overlay">
                 <h3 class="post-title" style="color: #ffffff !important;"><%= post.title %></h3>
                 <p class="post-date" style="color: #ffffff !important;"><%= new Date(post.createdAt).toLocaleDateString() %></p>
@@ -536,11 +646,11 @@
         }
       });
       
-      // Auto-expand the first section by default
-      if (button === collapsibles[0]) {
+      // Auto-expand the first year section by default if it exists
+      if (collapsibles.length > 0 && button === collapsibles[0]) {
         button.classList.add('active');
         const content = button.nextElementSibling;
-        content.style.display = 'grid';
+        if (content) content.style.display = 'grid';
       }
     });
     
@@ -564,31 +674,22 @@
     
     // Check if user is logged in using a cookie check
     function checkLoginStatus() {
-      // Check localStorage first (more reliable across browsers)
       const isLoggedInStorage = localStorage.getItem('isLoggedIn') === 'true';
-      
-      // Also check for session cookie as backup
       const isLoggedInCookie = document.cookie.split(';')
         .some(item => item.trim().startsWith('robolution_session='));
-      
       const isLoggedIn = isLoggedInStorage || isLoggedInCookie;
       
-      // Get all relevant buttons
       const loginButton = document.querySelector('.login-button');
       const signupButton = document.querySelector('.signup-button');
       const logoutButton = document.querySelector('.logout-button');
       const profileButton = document.querySelector('.profile-button');
       
       if (isLoggedIn) {
-        // User is logged in
-        console.log('User is logged in, showing logout button');
         if (loginButton) loginButton.style.display = 'none';
         if (signupButton) signupButton.style.display = 'none';
         if (logoutButton) logoutButton.style.display = 'inline-block';
         if (profileButton) profileButton.style.display = 'inline-block';
       } else {
-        // User is not logged in
-        console.log('User is NOT logged in, hiding logout button');
         if (loginButton) loginButton.style.display = 'inline-block';
         if (signupButton) signupButton.style.display = 'inline-block';
         if (logoutButton) logoutButton.style.display = 'none';
@@ -596,56 +697,74 @@
       }
     }
     
-    // Add function to verify server session before redirect
     window.checkServerSession = function(event) {
       event.preventDefault();
-      
-      // Make a quick API call to check if the session is valid on the server
       fetch('/api/check-session')
         .then(response => response.json())
         .then(data => {
           if (data.authenticated) {
-            // If authenticated on server, proceed to profile page
             window.location.href = '/profile';
           } else {
-            // If not authenticated on server, clear local storage and redirect to login
             localStorage.removeItem('isLoggedIn');
             window.location.href = '/login?redirect=/profile';
           }
         })
         .catch(error => {
           console.error('Error checking session:', error);
-          // On error, assume not logged in and redirect to login
           localStorage.removeItem('isLoggedIn');
           window.location.href = '/login';
         });
     };
     
-    // Run on page load
     checkLoginStatus();
     
-    // Add click handler to profile button to verify session
     const profileButton = document.querySelector('.profile-button');
     if (profileButton) {
       profileButton.addEventListener('click', function(event) {
         event.preventDefault();
-        fetch('/api/check-session')
-          .then(response => response.json())
-          .then(data => {
-            if (data.authenticated) {
-              window.location.href = '/profile';
-            } else {
-              localStorage.removeItem('isLoggedIn');
-              window.location.href = '/login?redirect=/profile';
-            }
-          })
-          .catch(error => {
-            console.error('Error checking session:', error);
-            localStorage.removeItem('isLoggedIn');
-            window.location.href = '/login';
-          });
+        checkServerSession(event); // Use the global function
       });
     }
+
+    // Trending Posts Scroller Functionality
+    const trendingGrid = document.getElementById('trendingGrid');
+    const scrollLeftBtn = document.getElementById('scrollLeftBtn');
+    const scrollRightBtn = document.getElementById('scrollRightBtn');
+
+    if (trendingGrid && scrollLeftBtn && scrollRightBtn) {
+      const scrollAmount = () => {
+        // Calculate scroll amount based on the width of one card + gap
+        const firstCard = trendingGrid.querySelector('.post-card');
+        if (firstCard) {
+          const cardStyle = window.getComputedStyle(firstCard);
+          const cardWidth = firstCard.offsetWidth;
+          const cardMarginRight = parseFloat(cardStyle.marginRight) || 0; // Assuming gap is implemented as margin
+          const gap = 40; // from CSS .trending-posts-grid { gap: 40px; }
+          return cardWidth + gap; 
+        }
+        return 300; // Default scroll amount
+      };
+
+      const updateArrowVisibility = () => {
+        scrollLeftBtn.disabled = trendingGrid.scrollLeft <= 0;
+        scrollRightBtn.disabled = trendingGrid.scrollLeft + trendingGrid.clientWidth >= trendingGrid.scrollWidth - 5; // -5 for buffer
+      };
+
+      scrollLeftBtn.addEventListener('click', () => {
+        trendingGrid.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
+      });
+
+      scrollRightBtn.addEventListener('click', () => {
+        trendingGrid.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+      });
+
+      // Update arrow visibility on scroll and initial load
+      trendingGrid.addEventListener('scroll', updateArrowVisibility);
+      updateArrowVisibility(); // Initial check
+       // Also update on resize as clientWidth/scrollWidth might change
+      window.addEventListener('resize', updateArrowVisibility);
+    }
+
   });
 </script>
 </body>
