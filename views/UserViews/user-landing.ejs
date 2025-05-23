@@ -200,9 +200,15 @@
     }
     
     .trending-timeframe-container {
-      display: flex;
+      display: none; /* Start hidden, will be made visible with JS */
+      flex-wrap: wrap;
       gap: 20px;
       width: 100%;
+    }
+    
+    /* Active timeframe container */
+    .trending-timeframe-container.active {
+      display: flex;
     }
     
     .trending-post {
@@ -763,7 +769,7 @@
           %>
           
           <!-- Weekly Posts Container (hidden by default) -->
-          <div class="trending-timeframe-container" id="weekly-container" style="display: none;">
+          <div class="trending-timeframe-container" id="weekly-container">
             <% if (weeklyPosts.length > 0) { %>
               <% weeklyPosts.forEach(post => { %>
                 <a href="/post/<%= post._id %>" class="trending-post">
@@ -790,7 +796,7 @@
           </div>
           
           <!-- Monthly Posts Container (shown by default) -->
-          <div class="trending-timeframe-container" id="monthly-container">
+          <div class="trending-timeframe-container active" id="monthly-container">
             <% if (monthlyPosts.length > 0) { %>
               <% monthlyPosts.forEach(post => { %>
                 <a href="/post/<%= post._id %>" class="trending-post">
@@ -817,7 +823,7 @@
           </div>
           
           <!-- All Time Posts Container (hidden by default) -->
-          <div class="trending-timeframe-container" id="alltime-container" style="display: none;">
+          <div class="trending-timeframe-container" id="alltime-container">
             <% if (alltimePosts.length > 0) { %>
               <% alltimePosts.forEach(post => { %>
                 <a href="/post/<%= post._id %>" class="trending-post">
@@ -967,11 +973,11 @@
         this.classList.add('active');
         
         // Hide all containers
-        timeframeContainers.forEach(container => container.style.display = 'none');
+        timeframeContainers.forEach(container => container.classList.remove('active'));
         
         // Show the selected container
         const timeframe = this.dataset.timeframe;
-        document.getElementById(timeframe + '-container').style.display = 'block';
+        document.getElementById(timeframe + '-container').classList.add('active');
         
         // Reset trending slider position
         const slider = document.getElementById('trendingSlider');
