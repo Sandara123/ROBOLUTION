@@ -653,9 +653,44 @@
             
             // Force sort ONLY by upvotes count, ignoring date
             trendingPosts.sort((a, b) => {
-              const aUpvotes = a.upvotes && Array.isArray(a.upvotes) ? a.upvotes.length : 0;
-              const bUpvotes = b.upvotes && Array.isArray(b.upvotes) ? b.upvotes.length : 0;
-              return bUpvotes - aUpvotes; // Sort by upvote count, descending
+              // Get upvote count - handle different data structures
+              let aUpvotes = 0;
+              let bUpvotes = 0;
+              
+              // Handle mongoose documents or plain objects
+              if (a.upvotes) {
+                if (typeof a.upvotes === 'function') {
+                  // Mongoose document with length method
+                  aUpvotes = a.upvotes.length;
+                } else if (Array.isArray(a.upvotes)) {
+                  // Plain array
+                  aUpvotes = a.upvotes.length;
+                } else if (typeof a.upvotes === 'object' && a.upvotes.length !== undefined) {
+                  // Array-like object
+                  aUpvotes = a.upvotes.length;
+                }
+              }
+              
+              if (b.upvotes) {
+                if (typeof b.upvotes === 'function') {
+                  // Mongoose document with length method
+                  bUpvotes = b.upvotes.length;
+                } else if (Array.isArray(b.upvotes)) {
+                  // Plain array
+                  bUpvotes = b.upvotes.length;
+                } else if (typeof b.upvotes === 'object' && b.upvotes.length !== undefined) {
+                  // Array-like object
+                  bUpvotes = b.upvotes.length;
+                }
+              }
+              
+              // Primary sort by upvote count, secondary sort by date if equal upvotes
+              if (bUpvotes !== aUpvotes) {
+                return bUpvotes - aUpvotes; // Sort by upvote count descending
+              } else {
+                // If equal upvotes, sort by date (newest first)
+                return new Date(b.createdAt) - new Date(a.createdAt);
+              }
             });
             
             // Debug info - check sorting results
