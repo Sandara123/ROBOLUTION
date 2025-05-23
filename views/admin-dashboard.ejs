@@ -66,6 +66,10 @@
     .sidebar.collapsed {
       width: 70px;
     }
+    
+    .sidebar.collapsed .sidebar-logo h1 {
+      display: none;
+    }
 
     .sidebar-header {
       padding: 20px;
@@ -73,6 +77,11 @@
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .sidebar.collapsed .sidebar-header {
+      padding: 20px 10px;
+      justify-content: center;
     }
 
     .sidebar-logo {
@@ -84,6 +93,10 @@
       width: 40px;
       height: 40px;
       margin-right: 10px;
+    }
+    
+    .sidebar.collapsed .sidebar-logo img {
+      margin-right: 0;
     }
 
     .sidebar-logo h1 {
@@ -107,6 +120,12 @@
       height: 30px;
       border-radius: 4px;
     }
+    
+    .sidebar.collapsed .sidebar-toggle {
+      position: absolute;
+      right: 10px;
+      top: 20px;
+    }
 
     .sidebar-toggle:hover {
       background-color: rgba(255, 255, 255, 0.1);
@@ -114,6 +133,33 @@
 
     .sidebar.collapsed .sidebar-toggle {
       transform: rotate(180deg);
+    }
+    
+    .sidebar.collapsed .sidebar-text,
+    .sidebar.collapsed .sidebar-heading {
+      display: none;
+    }
+    
+    .sidebar.collapsed .sidebar-item {
+      display: flex;
+      justify-content: center;
+    }
+    
+    .sidebar.collapsed .sidebar-link {
+      padding: 12px;
+      justify-content: center;
+    }
+    
+    .sidebar.collapsed .sidebar-icon {
+      margin-right: 0;
+    }
+    
+    .sidebar.collapsed .sidebar-dropdown-toggle::after {
+      display: none;
+    }
+    
+    .sidebar.collapsed .sidebar-dropdown.active .sidebar-dropdown-menu {
+      display: none; /* Always hide dropdown when collapsed */
     }
 
     .sidebar-menu {
@@ -499,13 +545,42 @@
       }
 
       .sidebar .sidebar-text,
-      .sidebar .sidebar-logo h1 {
+      .sidebar .sidebar-logo h1,
+      .sidebar .sidebar-heading {
         display: none;
       }
 
       .sidebar.expanded .sidebar-text,
-      .sidebar.expanded .sidebar-logo h1 {
+      .sidebar.expanded .sidebar-logo h1,
+      .sidebar.expanded .sidebar-heading {
         display: block;
+      }
+      
+      .sidebar .sidebar-item {
+        display: flex;
+        justify-content: center;
+      }
+      
+      .sidebar .sidebar-link {
+        padding: 12px;
+        justify-content: center;
+      }
+      
+      .sidebar .sidebar-icon {
+        margin-right: 0;
+      }
+      
+      .sidebar.expanded .sidebar-item {
+        display: block;
+      }
+      
+      .sidebar.expanded .sidebar-link {
+        padding: 12px 20px;
+        justify-content: flex-start;
+      }
+      
+      .sidebar.expanded .sidebar-icon {
+        margin-right: 15px;
       }
 
       .main-content {
@@ -844,9 +919,9 @@
         const toggleIcon = this.querySelector('i');
         if (sidebar.classList.contains('collapsed')) {
           toggleIcon.classList.remove('fa-bars');
-          toggleIcon.classList.add('fa-expand-alt');
+          toggleIcon.classList.add('fa-chevron-right');
         } else {
-          toggleIcon.classList.remove('fa-expand-alt');
+          toggleIcon.classList.remove('fa-chevron-right');
           toggleIcon.classList.add('fa-bars');
         }
       });
@@ -863,12 +938,29 @@
         }
       });
 
-      // Toggle sidebar dropdown menus
+      // Toggle sidebar dropdown menus (only when sidebar is not collapsed)
       sidebarDropdownToggles.forEach(toggle => {
         toggle.addEventListener('click', function(e) {
           e.preventDefault();
-          const parent = this.parentElement;
-          parent.classList.toggle('active');
+          if (!sidebar.classList.contains('collapsed')) {
+            const parent = this.parentElement;
+            parent.classList.toggle('active');
+          } else {
+            // When sidebar is collapsed, clicking any dropdown item should expand the sidebar
+            sidebar.classList.remove('collapsed');
+            mainContent.classList.remove('expanded');
+            
+            // Update the toggle icon
+            const toggleIcon = sidebarToggle.querySelector('i');
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-bars');
+            
+            // After expanding, open the dropdown
+            setTimeout(() => {
+              const parent = this.parentElement;
+              parent.classList.add('active');
+            }, 300);
+          }
         });
       });
 
