@@ -6155,6 +6155,14 @@ app.post('/api/posts/:id/comment', async (req, res) => {
 
     // Add comment to post
     post.comments.unshift(newComment); // Add to the beginning of the array
+
+    // Log the state before saving
+    console.log('Attempting to save post with new comment:');
+    console.log('Post ID:', postId);
+    console.log('User ID for comment:', userId);
+    console.log('New Comment Object:', JSON.stringify(newComment, null, 2));
+    // console.log('Post Object before save:', JSON.stringify(post, null, 2)); // Can be very verbose
+
     await post.save();
 
     // Format the response with user details
@@ -6173,7 +6181,10 @@ app.post('/api/posts/:id/comment', async (req, res) => {
     });
   } catch (error) {
     console.error('Error adding comment:', error);
-    res.status(500).json({ success: false, error: 'Server error occurred' });
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ success: false, error: 'Server error occurred', details: error.message });
   }
 });
 
