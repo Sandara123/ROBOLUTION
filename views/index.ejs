@@ -70,8 +70,11 @@
       border-radius: 5px;
     }
   
-    .active, .collapsible:hover {
+    .collapsible:hover { /* Combined active and hover for simplicity, or separate if needed */
       background-color: #00006b;
+    }
+     .collapsible.active {
+      background-color: #00006b; /* Keep active state distinct if desired */
     }
   
     .arrow {
@@ -80,44 +83,49 @@
       transition: transform 0.3s ease;
     }
   
-    .active .arrow {
+    .collapsible.active .arrow {
       transform: rotate(180deg);
     }
   
     .content {
-      padding: 0 15px;
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease-out;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 15px;
+      padding: 15px;
       width: 100%;
+      box-sizing: border-box;
+      
+      /* Collapsible properties */
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease-out, opacity 0.4s ease-out;
     }
   
-    .content.visible {
-      max-height: 5000px; /* Adjust based on expected max height */
-      padding: 15px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
+    .collapsible.active + .content {
+      max-height: 5000px; /* Adjust as needed for max content height */
+      opacity: 1;
+      /* overflow: visible; /* Or auto if content might exceed max-height */
     }
   
     /* Post card styles */
     .post-card {
-      width: calc(33.333% - 15px);
+      width: 100%; /* Takes full width of grid cell */
       background: white;
       border-radius: 10px;
       overflow: hidden;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
       position: relative;
-      margin-bottom: 20px;
+      /* margin-bottom: 20px; /* Grid gap handles spacing */
       display: flex;
       flex-direction: column;
+      box-sizing: border-box;
+      min-height: 300px; /* Example min-height */
     }
   
     .post-img {
       width: 100%;
-      height: 180px;
+      height: 180px; /* Adjusted height */
       object-fit: cover;
       object-position: center;
     }
@@ -134,14 +142,14 @@
       padding: 0 15px 10px;
       color: #444;
       font-size: 14px;
-      flex-grow: 1;
+      flex-grow: 1; /* Allows content to fill space */
     }
   
     .post-card-content p {
       margin: 8px 0;
       overflow: hidden;
       display: -webkit-box;
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: 3; /* Limits to 3 lines */
       -webkit-box-orient: vertical;
       font-size: 14px;
       line-height: 1.4;
@@ -150,7 +158,7 @@
     .date-posted {
       font-size: 0.8em;
       color: #777;
-      margin-top: 5px;
+      margin-top: 5px; /* Adjusted margin */
     }
   
     .post-actions {
@@ -223,21 +231,15 @@
       margin-bottom: 30px;
     }
   
-    /* Mobile responsiveness */
-    @media screen and (max-width: 1200px) {
-      .post-card {
-        width: calc(33.333% - 15px);
-      }
-    }
-  
+    /* Mobile responsiveness for the grid */
     @media screen and (max-width: 992px) {
-      .content, .content.visible {
+      .content {
         grid-template-columns: repeat(2, 1fr);
       }
     }
   
     @media screen and (max-width: 768px) {
-      .content, .content.visible {
+      .content {
         grid-template-columns: 1fr;
       }
   
@@ -262,22 +264,76 @@
   <style>
     /* Dashboard specific styles */
     body {
-      padding: 0;
-      margin: 0;
+      padding: 0 !important; /* Ensure no extra padding */
+      margin: 0 !important; /* Ensure no extra margin */
+      background-color: #fff !important; /* Match dashboard background if needed */
     }
     
     .content-wrapper {
-      padding-top: 0;
+      padding-top: 0 !important;
+      overflow-x: hidden; /* Prevent horizontal scroll */
     }
     
     /* Hide elements when in dashboard */
-    header, footer, .video-section, .back-to-top {
+    header, footer, .video-section, .back-to-top, .NandU { /* Hide NandU banner as well */
       display: none !important;
     }
     
     main {
       padding-top: 20px !important;
+      margin-top: 0 !important; /* Remove main's top margin if any */
+      padding-left: 15px !important; /* Adjust if main content needs padding */
+      padding-right: 15px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
     }
+
+    /* Ensure year sections and their content take full width */
+    .year-section {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        margin-bottom: 20px !important;
+    }
+    
+    /* Overrides for .content within dashboard to ensure it's always grid and visible */
+    .year-section > .content {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 15px !important;
+        padding: 15px 0 !important; /* Padding for items inside, adjust if year-section has padding */
+        width: 100% !important;
+        box-sizing: border-box !important;
+        max-height: none !important; /* Always expanded in dashboard */
+        opacity: 1 !important; /* Always visible */
+        overflow: visible !important;
+    }
+
+    .year-section > .collapsible {
+        display: block !important; /* Make sure year header is visible */
+         margin-bottom: 0 !important; /* Remove margin if .content has top padding */
+    }
+    
+    .year-section > .content > .post-card {
+        width: 100% !important; 
+        margin-bottom: 0 !important; 
+    }
+    
+    @media screen and (max-width: 992px) {
+      .year-section > .content {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+    }
+
+    @media screen and (max-width: 768px) {
+      .year-section > .content {
+        grid-template-columns: 1fr !important;
+      }
+    }
+     /* Ensure dashboard's main area allows content to fill */
+    .main-content .content-frame main {
+        padding: 0 !important; /* Reset padding if iframe's main has it */
+    }
+
   </style>
   <% } %>
 </head>
@@ -376,10 +432,10 @@
 
     <% Object.keys(years).sort((a, b) => { %>
       <% return sort === 'asc' ? a - b : b - a; %>
-    <% }).forEach(year => { %>
+    <% }).forEach((year, index) => { %>
       <div class="year-section" data-year="<%= year %>">
-        <button class="collapsible"><%= year %> <span class="arrow">▼</span></button>
-        <div class="content" style="display: none;">
+        <button class="collapsible <%= (index === 0 && !locals.dashboard) ? 'active' : '' %>"><%= year %> <span class="arrow">▼</span></button>
+        <div class="content">
           <% years[year].forEach(post => { %>
             <div class="post-card" data-title="<%= post.title.toLowerCase() %>" data-author="<%= post.author.toLowerCase() %>">
               <img src="<%= post.imageUrl %>" alt="<%= post.title %>" class="post-img">
@@ -455,115 +511,112 @@
       return true;
     };
     
-    // Check authentication state on page load and especially when returning via back button
-    function verifySession() {
-      // Add a random parameter to avoid caching
-      fetch('/api/check-session?t=' + new Date().getTime(), { 
-        credentials: 'same-origin',
-        headers: { 'Cache-Control': 'no-cache' }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (!data.authenticated) {
-          // Session is invalid, redirect to login
-          console.log('Session invalid, redirecting to login');
-          localStorage.removeItem('isLoggedIn');
-          window.location.href = '/login?expired=true&redirect=' + encodeURIComponent(window.location.pathname);
+    // Check authentication state (only if not in dashboard)
+    if (!<%= typeof locals.dashboard !== 'undefined' && locals.dashboard ? 'true' : 'false' %>) {
+        function verifySession() {
+          fetch('/api/check-session?t=' + new Date().getTime(), { 
+            credentials: 'same-origin',
+            headers: { 'Cache-Control': 'no-cache' }
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (!data.authenticated) {
+              console.log('Session invalid, redirecting to login');
+              localStorage.removeItem('isLoggedIn');
+              window.location.href = '/login?expired=true&redirect=' + encodeURIComponent(window.location.pathname);
+            }
+          })
+          .catch(error => {
+            console.error('Session check error:', error);
+          });
         }
-      })
-      .catch(error => {
-        console.error('Session check error:', error);
-      });
+        verifySession();
+        window.addEventListener('pageshow', function(event) {
+          if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+            verifySession();
+          }
+        });
     }
     
-    // Verify session on page load
-    verifySession();
-    
-    // Also verify when page is shown (e.g., when returning via back button)
-    window.addEventListener('pageshow', function(event) {
-      // If page is loaded from cache (back/forward navigation)
-      if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
-        verifySession();
-      }
-    });
-    
-    collapsibles.forEach(function(button) {
-      button.addEventListener('click', function() {
-        this.classList.toggle('active');
-        
-        // Toggle the display of the next element (the content)
-        const content = this.nextElementSibling;
-        if (content.style.display === 'block') {
-          content.style.display = 'none';
-        } else {
-          content.style.display = 'block';
-        }
-      });
-      
-      // Auto-expand the first section
-      if (button === collapsibles[0]) {
-        button.classList.add('active');
-        const content = button.nextElementSibling;
-        content.style.display = 'block';
-      }
-    });
+    // Collapsible script (only if not in dashboard, or if dashboard needs it to hide sections other than first)
+    if (!<%= typeof locals.dashboard !== 'undefined' && locals.dashboard ? 'true' : 'false' %>) {
+        collapsibles.forEach(function(button) {
+          button.addEventListener('click', function() {
+            this.classList.toggle('active');
+            // CSS now handles the display of .content based on .collapsible.active
+          });
+        });
+    } else {
+        // In dashboard mode, all .content sections under .year-section are made visible by CSS.
+        // Collapsible buttons are still present but won't toggle visibility via this script.
+        // They will show year, and all posts underneath will be visible in grid.
+    }
 
     // Dynamic search functionality
     const searchInput = document.getElementById('searchInput');
     const noPostsMessage = document.getElementById('noPostsMessage');
-    const searchTerm = document.getElementById('searchTerm');
+    const searchTermDisplay = document.getElementById('searchTerm'); // Corrected variable name
     const yearSections = document.querySelectorAll('.year-section');
-    const postCards = document.querySelectorAll('.post-card');
     
-    searchInput.addEventListener('input', function() {
-      const query = this.value.trim().toLowerCase();
-      let totalMatchingPosts = 0;
-      searchTerm.textContent = query;
-      
-      // Reset display of all sections
-      yearSections.forEach(section => {
-        section.style.display = 'block';
-        let yearMatchCount = 0;
-        
-        // Get all post cards within this year section
-        const yearPosts = section.querySelectorAll('.post-card');
-        
-        yearPosts.forEach(post => {
-          const title = post.getAttribute('data-title');
-          const author = post.getAttribute('data-author');
-          const content = post.querySelector('.post-card-content p').textContent.toLowerCase();
+    if(searchInput) { // Ensure search input exists
+        searchInput.addEventListener('input', function() {
+          const query = this.value.trim().toLowerCase();
+          let totalMatchingPosts = 0;
+          if(searchTermDisplay) searchTermDisplay.textContent = query;
           
-          if (query === '' || 
-              title.includes(query) || 
-              author.includes(query) || 
-              content.includes(query)) {
-            post.style.display = 'block';
-            yearMatchCount++;
-            totalMatchingPosts++;
-          } else {
-            post.style.display = 'none';
+          yearSections.forEach(section => {
+            const yearCollapsible = section.querySelector('.collapsible');
+            const yearContent = section.querySelector('.content');
+            let yearMatchCount = 0;
+            
+            const yearPosts = section.querySelectorAll('.post-card');
+            
+            yearPosts.forEach(post => {
+              const title = post.getAttribute('data-title') || '';
+              const author = post.getAttribute('data-author') || '';
+              const postTextContent = (post.querySelector('.post-card-content p')?.textContent || '').toLowerCase();
+              
+              if (query === '' || 
+                  title.includes(query) || 
+                  author.includes(query) || 
+                  postTextContent.includes(query)) {
+                post.style.display = 'flex'; // Or 'block' if it's not a flex container by default in this context
+                yearMatchCount++;
+                totalMatchingPosts++;
+              } else {
+                post.style.display = 'none';
+              }
+            });
+            
+            if (query === '') { // If search is cleared
+                section.style.display = 'block';
+                if (yearCollapsible && !yearCollapsible.classList.contains('active') && !<%= typeof locals.dashboard !== 'undefined' && locals.dashboard ? 'true' : 'false' %>) {
+                   // If not in dashboard and section wasn't active, keep content hidden by CSS
+                } else {
+                   // yearContent.style.display = 'grid'; // Already handled by CSS if active or in dashboard
+                }
+            } else { // If there's a search query
+                if (yearMatchCount === 0) {
+                  section.style.display = 'none';
+                } else {
+                  section.style.display = 'block';
+                  if (yearCollapsible && !yearCollapsible.classList.contains('active') && !<%= typeof locals.dashboard !== 'undefined' && locals.dashboard ? 'true' : 'false' %>) {
+                    yearCollapsible.classList.add('active'); // Expand section if it has matches and wasn't active
+                  }
+                   // yearContent.style.display = 'grid'; // Already handled by CSS
+                }
+            }
+          });
+          
+          if (noPostsMessage) {
+            if (totalMatchingPosts === 0 && query !== '') {
+              noPostsMessage.style.display = 'block';
+            } else {
+              noPostsMessage.style.display = 'none';
+            }
           }
         });
-        
-        // Hide year section if no posts match
-        if (yearMatchCount === 0) {
-          section.style.display = 'none';
-        } else {
-          // Make sure content is visible if there are matches
-          const content = section.querySelector('.content');
-          const button = section.querySelector('.collapsible');
-          content.style.display = 'block';
-          button.classList.add('active');
-        }
-      });
-      
-      // Show "no posts" message if no matches
-      if (totalMatchingPosts === 0 && query !== '') {
-        noPostsMessage.style.display = 'block';
-      } else {
-        noPostsMessage.style.display = 'none';
-      }
-    });
+    }
   });
 </script>
 </body>
