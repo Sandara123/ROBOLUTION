@@ -6213,41 +6213,29 @@ app.get('/post/:id', async (req, res) => {
       return res.status(404).send('Post not found');
     }
     
+    console.log('Comments after populate:', JSON.stringify(post.comments, null, 2)); // Log after populate
+
     // Ensure all comments have complete user data
     if (post.comments && post.comments.length > 0) {
-      // Prefetch all users referenced in comments to ensure complete data
-      const userIds = [...new Set(post.comments.map(comment => 
-        comment.user && comment.user._id ? comment.user._id.toString() : null)
-      )].filter(id => id !== null);
-      
-      const users = await User.find({ _id: { $in: userIds } })
-        .select('username profilePicture')
-        .lean();
-      
-      // Create a lookup map for quick access
-      const userMap = {};
-      users.forEach(user => {
-        userMap[user._id.toString()] = user;
-      });
-      
-      // Replace any missing user data in comments
       post.comments = post.comments.map(comment => {
-        // If user is missing or incomplete, try to get from our prefetched map
         if (!comment.user || !comment.user.username) {
-          const userId = comment.user && comment.user._id ? comment.user._id.toString() : null;
-          if (userId && userMap[userId]) {
-            comment.user = userMap[userId];
-          } else {
-            // If still no user, provide default values
-            comment.user = {
-              username: 'Anonymous User',
-              profilePicture: '/images/default-profile.png'
-            };
-          }
+          // If user is not populated or username is missing, set to Anonymous
+          // This can happen if the user was deleted or population failed for some reason
+          console.warn(`User data missing for comment by user ID: ${comment.user ? comment.user._id : 'N/A'}. Setting to Anonymous.`);
+          comment.user = {
+            username: 'Anonymous User',
+            profilePicture: '/images/default-profile.png',
+            _id: null // Or a specific placeholder ID if needed elsewhere
+          };
+        } else {
+          // Ensure profilePicture has a fallback if it's missing from the populated user
+          comment.user.profilePicture = comment.user.profilePicture || '/images/default-profile.png';
         }
         return comment;
       });
     }
+
+    console.log('Comments after mapping:', JSON.stringify(post.comments, null, 2)); // Log after mapping
     
     // Get unique regions with posts for the dropdown menu
     const allPosts = await Post.find({ region: { $ne: null } });
