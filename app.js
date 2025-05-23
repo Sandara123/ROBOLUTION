@@ -1188,60 +1188,94 @@ app.post('/manage-categories/:id/delete-image', async (req, res) => {
 
 // Route to show edit post page
 app.get('/edit-post/:id', requireAdmin, async (req, res) => {
-  // The following admin check is now handled by requireAdmin middleware and can be removed.
-  // if (!req.session.user || !req.session.user.isAdmin) {
-  //   return res.redirect('/login');
-  // }
+  // Check if user is logged in and is an admin
+  // This check is now handled by requireAdmin middleware, so it can be commented out or removed
+  /* if (!req.session.user || !req.session.user.isAdmin) {
+    return res.redirect('/login');
+  } */
 
   try {
-    // Get all posts for regions dropdown
-    const posts = await Post.find();
-
-    // Try to find the post by ID with proper ObjectID handling
-    let post;
+    console.log('Accessing post for editing, ID:', req.params.id);
     
-    try {
-      // Try direct mongoose findById first
-      post = await Post.findById(req.params.id);
-      
-      // If not found and ID seems to be a valid MongoDB ObjectId string
-      if (!post && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
-        // Create an ObjectId
-        const ObjectId = mongoose.Types.ObjectId;
-        const postId = new ObjectId(req.params.id);
-        
-        // Try alternative queries
-        post = await Post.findOne({ _id: postId });
-        
-        if (!post) {
-          post = await Post.findOne({ _id: req.params.id });
-        }
-      }
-    } catch (idError) {
-      console.error('Error looking up post:', idError);
-      // Ignore error and try alternative lookup methods
+    const postsCollection = robolutionDb.collection('posts');
+    const commentsCollection = robolutionDb.collection('comments');
+    const usersCollection = robolutionDb.collection('users');
+    const ObjectId = require('mongodb').ObjectId;
+
+    // Get all posts for regions dropdown (this seems unrelated to fetching a single post for edit, but keeping existing logic)
+    const allPostsForRegions = await postsCollection.find().toArray(); 
+
+    let post = null;
+    const postIdStr = req.params.id;
+
+    // Try to find the post by ID
+    if (ObjectId.isValid(postIdStr)) {
+      post = await postsCollection.findOne({ _id: new ObjectId(postIdStr) });
+      console.log('ObjectId lookup result for post:', post ? 'Found' : 'Not found');
+    } else {
+      // Fallback for non-ObjectId strings, though less likely for _id
+      post = await postsCollection.findOne({ _id: postIdStr });
+      console.log('Direct string ID lookup result for post:', post ? 'Found' : 'Not found');
     }
 
     if (!post) {
-      console.error('Post not found with ID:', req.params.id);
+      console.error('Post not found with ID:', postIdStr);
       return res.status(404).send('Post not found');
     }
 
-    // Get unique regions from posts
-    const uniqueRegions = [...new Set(posts
-      .map(post => post.region)
+    // Fetch comments for the post
+    if (post.comments && Array.isArray(post.comments) && post.comments.length > 0) {
+      const commentIds = post.comments.map(id => {
+        if (id instanceof ObjectId) return id;
+        if (ObjectId.isValid(id)) return new ObjectId(id);
+        return null; // Invalid ID
+      }).filter(id => id !== null); // Filter out invalid IDs
+
+      if (commentIds.length > 0) {
+        let fetchedComments = await commentsCollection.find({ _id: { $in: commentIds } }).sort({ createdAt: -1 }).toArray();
+
+        // Populate user information for each comment
+        for (let i = 0; i < fetchedComments.length; i++) {
+          let comment = fetchedComments[i];
+          let authorName = 'Anonymous'; // Default author name
+
+          if (comment.user && ObjectId.isValid(comment.user)) {
+            const userDoc = await usersCollection.findOne({ _id: new ObjectId(comment.user) });
+            if (userDoc && userDoc.username) {
+              authorName = userDoc.username;
+            }
+          } else if (comment.author && comment.author.username) {
+            // Fallback to embedded author username if `user` field is not present or user not found
+            authorName = comment.author.username;
+          }
+          // Ensure the comment object has a standardized author field for the template
+          comment.author = { username: authorName }; 
+        }
+        post.comments = fetchedComments; // Replace IDs with populated comment objects
+      } else {
+        post.comments = []; // No valid comment IDs found
+      }
+    } else {
+      post.comments = []; // Ensure post.comments is an empty array if no comments or not an array
+    }
+
+    const postObject = JSON.parse(JSON.stringify(post)); 
+    
+    const uniqueRegions = [...new Set(allPostsForRegions
+      .map(p => p.region)
       .filter(region => region && region !== 'All')
     )].sort();
 
-    const isDashboard = req.query.dashboard === 'true'; // Capture dashboard status
+    const isDashboard = req.query.dashboard === 'true';
 
     res.render('edit-post', { 
-      post,
+      post: postObject, 
+      user: req.session.user, 
       uniqueRegions,
-      dashboard: isDashboard // Pass dashboard status to the template
+      dashboard: isDashboard
     });
   } catch (error) {
-    console.error('Error finding post:', error);
+    console.error('Error finding post or its comments for editing:', error);
     res.status(500).send('Server error');
   }
 });
@@ -6274,3 +6308,64 @@ app.get('/user-landing', async (req, res) => {
     res.status(500).send('Server error occurred');
   }
 });
+
+// Route to delete a comment (API endpoint)
+app.delete('/api/comments/:commentId', requireAdmin, async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const ObjectId = require('mongodb').ObjectId;
+
+    if (!ObjectId.isValid(commentId)) {
+      return res.status(400).json({ success: false, message: 'Invalid comment ID format.' });
+    }
+
+    const commentsCollection = robolutionDb.collection('comments');
+    const postsCollection = robolutionDb.collection('posts');
+
+    // Find the comment to get the postId for updating the post's comment array
+    const commentToDelete = await commentsCollection.findOne({ _id: new ObjectId(commentId) });
+
+    if (!commentToDelete) {
+      return res.status(404).json({ success: false, message: 'Comment not found.' });
+    }
+
+    // Delete the comment document
+    const deleteResult = await commentsCollection.deleteOne({ _id: new ObjectId(commentId) });
+
+    if (deleteResult.deletedCount === 0) {
+      // Should not happen if findOne found it, but as a safeguard
+      return res.status(404).json({ success: false, message: 'Comment not found or already deleted.' });
+    }
+
+    // Remove the comment's ObjectId from the corresponding post's 'comments' array
+    // Ensure commentToDelete.post is a valid ObjectId before using it to update the postsCollection
+    if (commentToDelete.post) {
+        let postIdToUpdate;
+        if (commentToDelete.post instanceof ObjectId) {
+            postIdToUpdate = commentToDelete.post;
+        } else if (ObjectId.isValid(commentToDelete.post.toString())) {
+            postIdToUpdate = new ObjectId(commentToDelete.post.toString());
+        } else {
+            console.error('Invalid post ID in comment document:', commentToDelete.post);
+            // Optionally, still consider the comment deleted but log the issue with updating the post
+            return res.json({ success: true, message: 'Comment deleted, but post linkage might be inconsistent due to invalid post ID in comment.' });
+        }
+
+        await postsCollection.updateOne(
+            { _id: postIdToUpdate },
+            { $pull: { comments: new ObjectId(commentId) } } 
+        );
+    } else {
+        console.warn(`Comment ${commentId} deleted, but it had no associated post ID.`);
+    }
+
+    res.json({ success: true, message: 'Comment deleted successfully.' });
+
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ success: false, message: 'Server error while deleting comment.' });
+  }
+});
+
+// Middleware to serve static files from the 'public' directory
+// ... existing code ...

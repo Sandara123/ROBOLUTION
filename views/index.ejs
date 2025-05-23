@@ -499,7 +499,7 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const IS_DASHBOARD_VIEW = <%= (typeof locals !== 'undefined' && locals.dashboard) ? 'true' : 'false' %>;
+    const IS_DASHBOARD_VIEW = <%= (typeof locals !== 'undefined' && locals.dashboard) ? true : false %>;
 
     // Handle collapsible sections
     const collapsibles = document.querySelectorAll('.collapsible');
