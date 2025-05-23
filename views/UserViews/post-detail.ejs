@@ -543,8 +543,8 @@
       <div class="interaction-section">
         <div class="upvote-section">
           <% const upvoteCount = post.upvotes ? post.upvotes.length : 0; %>
-          <% const isLoggedIn = typeof user !== 'undefined' && user; %>
-          <% const hasUpvoted = isLoggedIn && post.upvotes && post.upvotes.some(id => id.toString() === user._id.toString()); %>
+          <% const isLoggedIn = typeof user !== 'undefined' && user && user.id; %>
+          <% const hasUpvoted = isLoggedIn && post.upvotes && post.upvotes.some(id => id.toString() === user.id.toString()); %>
           
           <button id="upvoteBtn" class="upvote-btn <%= hasUpvoted ? 'active' : '' %> <%= !isLoggedIn ? 'disabled' : '' %>" 
             data-post-id="<%= post._id %>" <%= !isLoggedIn ? 'disabled' : '' %>>
@@ -651,34 +651,43 @@
     
     // Check if user is logged in using a cookie check
     function checkLoginStatus() {
-      // Check localStorage first (more reliable across browsers)
-      const isLoggedInStorage = localStorage.getItem('isLoggedIn') === 'true';
-      
-      // Also check for session cookie as backup
-      const isLoggedInCookie = document.cookie.split(';')
-        .some(item => item.trim().startsWith('robolution_session='));
-      
-      const isLoggedIn = isLoggedInStorage || isLoggedInCookie;
-      
-      // Get all relevant buttons
-      const loginButton = document.querySelector('.login-button');
-      const signupButton = document.querySelector('.signup-button');
-      const logoutButton = document.querySelector('.logout-button');
-      const profileButton = document.querySelector('.profile-button');
-      
-      if (isLoggedIn) {
-        // User is logged in
-        if (loginButton) loginButton.style.display = 'none';
-        if (signupButton) signupButton.style.display = 'none';
-        if (logoutButton) logoutButton.style.display = 'inline-block';
-        if (profileButton) profileButton.style.display = 'inline-block';
-      } else {
-        // User is not logged in
-        if (loginButton) loginButton.style.display = 'inline-block';
-        if (signupButton) signupButton.style.display = 'inline-block';
-        if (logoutButton) logoutButton.style.display = 'none';
-        if (profileButton) profileButton.style.display = 'none';
-      }
+      // Make a server-side API call to check the session status
+      fetch('/api/check-session')
+        .then(response => response.json())
+        .then(data => {
+          const isLoggedIn = data.authenticated;
+          
+          // Get all relevant buttons
+          const loginButton = document.querySelector('.login-button');
+          const signupButton = document.querySelector('.signup-button');
+          const logoutButton = document.querySelector('.logout-button');
+          const profileButton = document.querySelector('.profile-button');
+          
+          if (isLoggedIn) {
+            // User is logged in
+            if (loginButton) loginButton.style.display = 'none';
+            if (signupButton) signupButton.style.display = 'none';
+            if (logoutButton) logoutButton.style.display = 'inline-block';
+            if (profileButton) profileButton.style.display = 'inline-block';
+            
+            // Store login status in localStorage for client-side checks
+            localStorage.setItem('isLoggedIn', 'true');
+          } else {
+            // User is not logged in
+            if (loginButton) loginButton.style.display = 'inline-block';
+            if (signupButton) signupButton.style.display = 'inline-block';
+            if (logoutButton) logoutButton.style.display = 'none';
+            if (profileButton) profileButton.style.display = 'none';
+            
+            // Clear login status from localStorage
+            localStorage.removeItem('isLoggedIn');
+          }
+        })
+        .catch(error => {
+          console.error('Error checking login status:', error);
+          // On error, assume not logged in
+          localStorage.removeItem('isLoggedIn');
+        });
     }
     
     // Handle upvote button click

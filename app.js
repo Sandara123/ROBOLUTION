@@ -6070,12 +6070,12 @@ app.get('/admin/user/:id/reset-2fa-secret', requireAdmin, async (req, res) => {
 app.post('/api/posts/:id/upvote', async (req, res) => {
   try {
     // Check if user is logged in
-    if (!req.session.userId) {
+    if (!req.session.user || !req.session.user.id) {
       return res.status(401).json({ success: false, error: 'You must be logged in to upvote' });
     }
 
     const postId = req.params.id;
-    const userId = req.session.userId;
+    const userId = req.session.user.id;
 
     // Find the post
     const post = await Post.findById(postId);
@@ -6116,12 +6116,12 @@ app.post('/api/posts/:id/upvote', async (req, res) => {
 app.post('/api/posts/:id/comment', async (req, res) => {
   try {
     // Check if user is logged in
-    if (!req.session.userId) {
+    if (!req.session.user || !req.session.user.id) {
       return res.status(401).json({ success: false, error: 'You must be logged in to comment' });
     }
 
     const postId = req.params.id;
-    const userId = req.session.userId;
+    const userId = req.session.user.id;
     const { text } = req.body;
 
     // Validate comment text
@@ -6179,7 +6179,7 @@ app.post('/api/posts/:id/comment', async (req, res) => {
 
 // API route to check if session is valid
 app.get('/api/check-session', (req, res) => {
-  if (req.session.userId) {
+  if (req.session.user && req.session.user.id) {
     return res.json({ authenticated: true });
   }
   res.json({ authenticated: false });
@@ -6208,7 +6208,7 @@ app.get('/post/:id', async (req, res) => {
     res.render('UserViews/post-detail', { 
       post,
       uniqueRegions,
-      user: req.session.userId ? await User.findById(req.session.userId) : null,
+      user: req.session.user || null,
       req
     });
   } catch (error) {
@@ -6235,7 +6235,7 @@ app.get('/user-landing', async (req, res) => {
     res.render('UserViews/user-landing', { 
       posts,
       sort,
-      user: req.session.userId ? await User.findById(req.session.userId) : null
+      user: req.session.user || null
     });
   } catch (error) {
     console.error('Error fetching posts:', error);
