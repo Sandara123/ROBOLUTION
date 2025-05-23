@@ -6243,9 +6243,13 @@ app.get('/user-landing', async (req, res) => {
       sort = 'desc';
     }
     
-    // Get all posts sorted by date
+    // Get all posts with upvotes field included
     const posts = await Post.find()
+      .select('title content author imageUrl region createdAt upvotes comments')  // Explicitly include upvotes
       .sort({ createdAt: sort === 'desc' ? -1 : 1 });
+    
+    // Debug log - check if posts have upvotes field
+    console.log('First post upvotes:', posts.length > 0 ? (posts[0].upvotes ? posts[0].upvotes.length : 'no upvotes field') : 'no posts');
     
     res.render('UserViews/user-landing', { 
       posts,
