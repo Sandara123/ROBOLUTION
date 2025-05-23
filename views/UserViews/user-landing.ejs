@@ -139,10 +139,19 @@
       padding: 0 20px;
     }
     
+    .trending-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    
     .trending-title {
       font-size: 1.8rem;
       color: #00008b;
-      margin-bottom: 20px;
+      margin-bottom: 0;
       position: relative;
       display: flex;
       align-items: center;
@@ -151,6 +160,32 @@
     .trending-title i {
       margin-right: 10px;
       color: #ff4500;
+    }
+    
+    .trending-filters {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .trending-filter-btn {
+      background-color: #f0f0f0;
+      border: none;
+      border-radius: 20px;
+      padding: 8px 18px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+    
+    .trending-filter-btn:hover {
+      background-color: #e0e0e0;
+    }
+    
+    .trending-filter-btn.active {
+      background-color: #00008b;
+      color: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     }
     
     .trending-slider-container {
@@ -162,7 +197,12 @@
     .trending-slider {
       display: flex;
       transition: transform 0.5s ease;
+    }
+    
+    .trending-timeframe-container {
+      display: flex;
       gap: 20px;
+      width: 100%;
     }
     
     .trending-post {
@@ -411,6 +451,11 @@
         flex: 0 0 calc(100%);
         min-width: calc(100%);
       }
+      
+      .trending-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
     
     @media (max-width: 640px) {
@@ -629,12 +674,22 @@
 
     <!-- Trending Posts Section -->
     <section class="trending-section">
-      <h2 class="trending-title"><i class="fas fa-fire"></i> Trending Posts</h2>
+      <div class="trending-header">
+        <h2 class="trending-title"><i class="fas fa-fire"></i> Trending Posts</h2>
+        <div class="trending-filters">
+          <button class="trending-filter-btn" data-timeframe="weekly">This Week</button>
+          <button class="trending-filter-btn active" data-timeframe="monthly">This Month</button>
+          <button class="trending-filter-btn" data-timeframe="alltime">All Time</button>
+        </div>
+      </div>
       
       <div class="trending-slider-container">
         <div class="trending-slider" id="trendingSlider">
           <% 
-            // Get posts from the last month
+            // Define time periods
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            
             const oneMonthAgo = new Date();
             oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
             
@@ -645,90 +700,148 @@
             }
             
             // Make a separate array to avoid modifying the original posts
-            let trendingPosts = [...posts];
+            let weeklyPosts = [...posts].filter(post => new Date(post.createdAt) >= oneWeekAgo);
+            let monthlyPosts = [...posts].filter(post => new Date(post.createdAt) >= oneMonthAgo);
+            let alltimePosts = [...posts]; // No date filter
             
-            // Filter posts from last month
-            trendingPosts = trendingPosts.filter(post => new Date(post.createdAt) >= oneMonthAgo);
-            console.log('Posts from last month:', trendingPosts.length);
-            
-            // Force sort ONLY by upvotes count, ignoring date
-            trendingPosts.sort((a, b) => {
-              // Get upvote count - handle different data structures
-              let aUpvotes = 0;
-              let bUpvotes = 0;
-              
-              // Handle mongoose documents or plain objects
-              if (a.upvotes) {
-                if (typeof a.upvotes === 'function') {
-                  // Mongoose document with length method
-                  aUpvotes = a.upvotes.length;
-                } else if (Array.isArray(a.upvotes)) {
-                  // Plain array
-                  aUpvotes = a.upvotes.length;
-                } else if (typeof a.upvotes === 'object' && a.upvotes.length !== undefined) {
-                  // Array-like object
-                  aUpvotes = a.upvotes.length;
+            // Function to sort posts by upvotes
+            const sortByUpvotes = (postArray) => {
+              return postArray.sort((a, b) => {
+                // Get upvote count - handle different data structures
+                let aUpvotes = 0;
+                let bUpvotes = 0;
+                
+                // Handle mongoose documents or plain objects
+                if (a.upvotes) {
+                  if (typeof a.upvotes === 'function') {
+                    // Mongoose document with length method
+                    aUpvotes = a.upvotes.length;
+                  } else if (Array.isArray(a.upvotes)) {
+                    // Plain array
+                    aUpvotes = a.upvotes.length;
+                  } else if (typeof a.upvotes === 'object' && a.upvotes.length !== undefined) {
+                    // Array-like object
+                    aUpvotes = a.upvotes.length;
+                  }
                 }
-              }
-              
-              if (b.upvotes) {
-                if (typeof b.upvotes === 'function') {
-                  // Mongoose document with length method
-                  bUpvotes = b.upvotes.length;
-                } else if (Array.isArray(b.upvotes)) {
-                  // Plain array
-                  bUpvotes = b.upvotes.length;
-                } else if (typeof b.upvotes === 'object' && b.upvotes.length !== undefined) {
-                  // Array-like object
-                  bUpvotes = b.upvotes.length;
+                
+                if (b.upvotes) {
+                  if (typeof b.upvotes === 'function') {
+                    // Mongoose document with length method
+                    bUpvotes = b.upvotes.length;
+                  } else if (Array.isArray(b.upvotes)) {
+                    // Plain array
+                    bUpvotes = b.upvotes.length;
+                  } else if (typeof b.upvotes === 'object' && b.upvotes.length !== undefined) {
+                    // Array-like object
+                    bUpvotes = b.upvotes.length;
+                  }
                 }
-              }
-              
-              // Primary sort by upvote count, secondary sort by date if equal upvotes
-              if (bUpvotes !== aUpvotes) {
-                return bUpvotes - aUpvotes; // Sort by upvote count descending
-              } else {
-                // If equal upvotes, sort by date (newest first)
-                return new Date(b.createdAt) - new Date(a.createdAt);
-              }
-            });
+                
+                // Primary sort by upvote count, secondary sort by date if equal upvotes
+                if (bUpvotes !== aUpvotes) {
+                  return bUpvotes - aUpvotes; // Sort by upvote count descending
+                } else {
+                  // If equal upvotes, sort by date (newest first)
+                  return new Date(b.createdAt) - new Date(a.createdAt);
+                }
+              }).slice(0, 15); // Limit to 15 posts
+            };
             
-            // Debug info - check sorting results
-            if (trendingPosts.length >= 2) {
-              console.log('First trending post:', {
-                title: trendingPosts[0].title,
-                upvotes: trendingPosts[0].upvotes ? trendingPosts[0].upvotes.length : 0,
-                date: new Date(trendingPosts[0].createdAt).toLocaleDateString()
-              });
-              console.log('Second trending post:', {
-                title: trendingPosts[1].title,
-                upvotes: trendingPosts[1].upvotes ? trendingPosts[1].upvotes.length : 0,
-                date: new Date(trendingPosts[1].createdAt).toLocaleDateString()
-              });
-            }
+            // Sort all arrays by upvotes
+            weeklyPosts = sortByUpvotes(weeklyPosts);
+            monthlyPosts = sortByUpvotes(monthlyPosts);
+            alltimePosts = sortByUpvotes(alltimePosts);
             
-            // Limit to 15 posts
-            trendingPosts = trendingPosts.slice(0, 15);
+            // Default to monthly posts
+            let trendingPosts = monthlyPosts;
+            
+            // Debug totals
+            console.log('Weekly trending posts:', weeklyPosts.length);
+            console.log('Monthly trending posts:', monthlyPosts.length);
+            console.log('All-time trending posts:', alltimePosts.length);
           %>
           
-          <% if (trendingPosts.length > 0) { %>
-            <% trendingPosts.forEach(post => { %>
-              <a href="/post/<%= post._id %>" class="trending-post">
-                <img src="<%= post.imageUrl %>" alt="<%= post.title %>">
-                <div class="trending-post-overlay">
-                  <h3 class="trending-post-title"><%= post.title %></h3>
-                  <div class="trending-post-info">
-                    <span><i class="far fa-calendar-alt"></i> <%= new Date(post.createdAt).toLocaleDateString() %></span>
-                    <span><i class="fas fa-arrow-up"></i> <%= post.upvotes ? post.upvotes.length : 0 %> upvotes</span>
+          <!-- Weekly Posts Container (hidden by default) -->
+          <div class="trending-timeframe-container" id="weekly-container" style="display: none;">
+            <% if (weeklyPosts.length > 0) { %>
+              <% weeklyPosts.forEach(post => { %>
+                <a href="/post/<%= post._id %>" class="trending-post">
+                  <img src="<%= post.imageUrl %>" alt="<%= post.title %>">
+                  <div class="trending-post-overlay">
+                    <h3 class="trending-post-title"><%= post.title %></h3>
+                    <div class="trending-post-info">
+                      <span><i class="far fa-calendar-alt"></i> <%= new Date(post.createdAt).toLocaleString('en-PH', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: 'Asia/Manila'
+                      }) %></span>
+                      <span><i class="fas fa-arrow-up"></i> <%= post.upvotes ? post.upvotes.length : 0 %> upvotes</span>
+                    </div>
                   </div>
-                </div>
-              </a>
-            <% }) %>
-          <% } else { %>
-            <div style="padding: 30px; text-align: center; width: 100%;">
-              <p>No trending posts available at this time.</p>
-            </div>
-          <% } %>
+                </a>
+              <% }) %>
+            <% } else { %>
+              <div style="padding: 30px; text-align: center; width: 100%;">
+                <p>No trending posts from this week.</p>
+              </div>
+            <% } %>
+          </div>
+          
+          <!-- Monthly Posts Container (shown by default) -->
+          <div class="trending-timeframe-container" id="monthly-container">
+            <% if (monthlyPosts.length > 0) { %>
+              <% monthlyPosts.forEach(post => { %>
+                <a href="/post/<%= post._id %>" class="trending-post">
+                  <img src="<%= post.imageUrl %>" alt="<%= post.title %>">
+                  <div class="trending-post-overlay">
+                    <h3 class="trending-post-title"><%= post.title %></h3>
+                    <div class="trending-post-info">
+                      <span><i class="far fa-calendar-alt"></i> <%= new Date(post.createdAt).toLocaleString('en-PH', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: 'Asia/Manila'
+                      }) %></span>
+                      <span><i class="fas fa-arrow-up"></i> <%= post.upvotes ? post.upvotes.length : 0 %> upvotes</span>
+                    </div>
+                  </div>
+                </a>
+              <% }) %>
+            <% } else { %>
+              <div style="padding: 30px; text-align: center; width: 100%;">
+                <p>No trending posts from this month.</p>
+              </div>
+            <% } %>
+          </div>
+          
+          <!-- All Time Posts Container (hidden by default) -->
+          <div class="trending-timeframe-container" id="alltime-container" style="display: none;">
+            <% if (alltimePosts.length > 0) { %>
+              <% alltimePosts.forEach(post => { %>
+                <a href="/post/<%= post._id %>" class="trending-post">
+                  <img src="<%= post.imageUrl %>" alt="<%= post.title %>">
+                  <div class="trending-post-overlay">
+                    <h3 class="trending-post-title"><%= post.title %></h3>
+                    <div class="trending-post-info">
+                      <span><i class="far fa-calendar-alt"></i> <%= new Date(post.createdAt).toLocaleString('en-PH', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        timeZone: 'Asia/Manila'
+                      }) %></span>
+                      <span><i class="fas fa-arrow-up"></i> <%= post.upvotes ? post.upvotes.length : 0 %> upvotes</span>
+                    </div>
+                  </div>
+                </a>
+              <% }) %>
+            <% } else { %>
+              <div style="padding: 30px; text-align: center; width: 100%;">
+                <p>No trending posts available.</p>
+              </div>
+            <% } %>
+          </div>
         </div>
         
         <div class="slider-controls">
@@ -771,7 +884,12 @@
               <img src="<%= post.imageUrl %>" alt="<%= post.title %>" class="post-img">
               <div class="post-overlay">
                 <h3 class="post-title" style="color: #ffffff !important;"><%= post.title %></h3>
-                <p class="post-date" style="color: #ffffff !important;"><%= new Date(post.createdAt).toLocaleDateString() %></p>
+                <p class="post-date" style="color: #ffffff !important;"><%= new Date(post.createdAt).toLocaleString('en-PH', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  timeZone: 'Asia/Manila'
+                }) %></p>
               </div>
             </a>
           <% }) %>
@@ -836,6 +954,35 @@
       }
     });
     
+    // Handle trending posts time frame filter buttons
+    const timeframeButtons = document.querySelectorAll('.trending-filter-btn');
+    const timeframeContainers = document.querySelectorAll('.trending-timeframe-container');
+    
+    timeframeButtons.forEach(function(button) {
+      button.addEventListener('click', function() {
+        // Remove active class from all buttons
+        timeframeButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Add active class to clicked button
+        this.classList.add('active');
+        
+        // Hide all containers
+        timeframeContainers.forEach(container => container.style.display = 'none');
+        
+        // Show the selected container
+        const timeframe = this.dataset.timeframe;
+        document.getElementById(timeframe + '-container').style.display = 'block';
+        
+        // Reset trending slider position
+        const slider = document.getElementById('trendingSlider');
+        if (slider) {
+          slider.style.transform = 'translateX(0)';
+          currentPosition = 0;
+          updateButtonStates();
+        }
+      });
+    });
+    
     // Handle back-to-top button
     const backToTopButton = document.getElementById('backToTop');
     
@@ -860,7 +1007,7 @@
     const nextBtn = document.getElementById('sliderNext');
     
     if (slider && prevBtn && nextBtn) {
-      const slideWidth = slider.querySelector('.trending-post')?.offsetWidth + 20 || 300; // 20px gap
+      const slideWidth = document.querySelector('.trending-post')?.offsetWidth + 20 || 300; // 20px gap
       let currentPosition = 0;
       let maxScroll = slider.scrollWidth - slider.clientWidth;
       
@@ -893,7 +1040,7 @@
       
       // Recalculate on window resize
       window.addEventListener('resize', function() {
-        const newSlideWidth = slider.querySelector('.trending-post')?.offsetWidth + 20 || 300;
+        const newSlideWidth = document.querySelector('.trending-post')?.offsetWidth + 20 || 300;
         maxScroll = slider.scrollWidth - slider.clientWidth;
         
         // Adjust current position if needed

@@ -370,7 +370,14 @@
               <div class="post-card-content">
                 <p><%= post.content %></p>
                 <p><strong>Author:</strong> <%= post.author %></p>
-                <p class="date-posted">Posted on: <%= new Date(post.createdAt).toLocaleDateString() %></p>
+                <p class="date-posted">Posted on: <%= new Date(post.createdAt).toLocaleString('en-PH', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  timeZone: 'Asia/Manila'
+                }) %></p>
               </div>
               <div class="post-actions">
                 <a href="/edit-post/<%= post._id %>" class="edit-btn">Edit</a>

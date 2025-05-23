@@ -517,10 +517,13 @@
             <span><strong>Author:</strong> <%= post.author %></span>
           </div>
           <div class="post-meta-item">
-            <span><strong>Posted:</strong> <%= new Date(post.createdAt).toLocaleDateString('en-US', { 
+            <span><strong>Posted:</strong> <%= new Date(post.createdAt).toLocaleString('en-PH', { 
               year: 'numeric', 
               month: 'long', 
-              day: 'numeric' 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'Asia/Manila'
             }) %></span>
           </div>
           <% if (post.region && post.region !== 'All') { %>
@@ -586,12 +589,13 @@
                          onerror="this.src='<%= defaultImg %>';">
                     <div>
                       <div class="comment-user-name"><%= username %></div>
-                      <div class="comment-date"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { 
+                      <div class="comment-date"><%= new Date(comment.createdAt).toLocaleString('en-PH', { 
                         year: 'numeric', 
                         month: 'short', 
                         day: 'numeric',
                         hour: '2-digit', 
-                        minute: '2-digit'
+                        minute: '2-digit',
+                        timeZone: 'Asia/Manila'
                       }) %></div>
                     </div>
                   </div>
@@ -782,12 +786,13 @@
                      onerror="this.src='${defaultProfilePic}';">
                 <div>
                   <div class="comment-user-name">${username}</div>
-                  <div class="comment-date">${new Date().toLocaleDateString('en-US', {
+                  <div class="comment-date">${new Date().toLocaleString('en-PH', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
                     hour: '2-digit',
-                    minute: '2-digit'
+                    minute: '2-digit',
+                    timeZone: 'Asia/Manila'
                   })}</div>
                 </div>
               </div>
