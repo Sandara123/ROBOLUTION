@@ -6148,7 +6148,7 @@ app.post('/api/posts/:id/comment', async (req, res) => {
 
     // Create a new comment with a direct ObjectId reference to the user
     const newComment = {
-      user: mongoose.Types.ObjectId(userId),
+      user: new mongoose.Types.ObjectId(userId),
       text: text.trim(),
       createdAt: new Date()
     };
