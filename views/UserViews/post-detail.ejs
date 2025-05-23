@@ -577,12 +577,13 @@
                       // Ensure we have valid user data
                       const commentUser = comment.user || {};
                       const username = commentUser.username || 'Anonymous User';
-                      // Use the default profile picture passed from the controller
-                      const profilePic = commentUser.profilePicture || defaultProfilePicture;
+                      // Set default profile picture with fallback
+                      const defaultImg = typeof defaultProfilePicture !== 'undefined' ? defaultProfilePicture : '/images/default-profile.png';
+                      const profilePic = commentUser.profilePicture || defaultImg;
                     %>
                     <img src="<%= profilePic %>" 
                          alt="<%= username %>" class="comment-user-img" 
-                         onerror="this.src='<%= defaultProfilePicture %>';">
+                         onerror="this.src='<%= defaultImg %>';">
                     <div>
                       <div class="comment-user-name"><%= username %></div>
                       <div class="comment-date"><%= new Date(comment.createdAt).toLocaleDateString('en-US', { 
@@ -768,7 +769,7 @@
             
             // Create a new comment element with robust data handling
             const username = data.comment.user?.username || 'Anonymous User';
-            // Use a constant for default profile picture
+            // Use a constant for default profile picture with fallback
             const defaultProfilePic = '/images/default-user.png';
             const profilePic = data.comment.user?.profilePicture || defaultProfilePic;
             

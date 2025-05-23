@@ -6,8 +6,15 @@ const mongoose = require('mongoose');
 const Post = require('./models/Post');
 const User = require('./models/User');
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
+// Connect to MongoDB - use environment variable
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+  console.error('MONGODB_URI environment variable is not set');
+  process.exit(1);
+}
+
+console.log('Connecting to MongoDB...');
+mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
@@ -31,16 +38,28 @@ async function migrateComments() {
       let updated = false;
       
       // Get unique user IDs from comments
-      const userIds = [...new Set(
-        post.comments
-          .filter(comment => comment.user && mongoose.Types.ObjectId.isValid(comment.user))
-          .map(comment => comment.user.toString())
-      )];
+      const userIds = [];
+      post.comments.forEach(comment => {
+        try {
+          // Handle different formats of user field
+          if (comment.user) {
+            if (typeof comment.user === 'string' || mongoose.Types.ObjectId.isValid(comment.user)) {
+              userIds.push(comment.user.toString());
+            } else if (comment.user._id) {
+              userIds.push(comment.user._id.toString());
+            }
+          }
+        } catch (err) {
+          console.error(`Error processing comment user ID in post ${post._id}:`, err);
+        }
+      });
       
       // Fetch all users at once
-      const users = await User.find({ _id: { $in: userIds } })
+      const users = await User.find({ _id: { $in: [...new Set(userIds)] } })
         .select('_id username profilePicture')
         .lean();
+      
+      console.log(`Found ${users.length} users for ${userIds.length} unique user IDs`);
       
       // Create a map for quick lookup
       const userMap = {};
@@ -54,15 +73,24 @@ async function migrateComments() {
         
         // Skip if already in the new format
         if (comment.user && comment.user.username) {
+          console.log(`Comment ${i} already in new format, skipping`);
           continue;
         }
         
-        // Get the user ID (could be ObjectId or string)
-        let userId = comment.user;
-        if (userId && typeof userId === 'object' && userId._id) {
-          userId = userId._id.toString();
-        } else if (userId) {
-          userId = userId.toString();
+        console.log(`Updating comment ${i} in post ${post._id}`);
+        
+        // Get the user ID
+        let userId = null;
+        try {
+          if (comment.user) {
+            if (typeof comment.user === 'string' || comment.user instanceof mongoose.Types.ObjectId) {
+              userId = comment.user.toString();
+            } else if (comment.user._id) {
+              userId = comment.user._id.toString();
+            }
+          }
+        } catch (err) {
+          console.error(`Error extracting user ID from comment ${i}:`, err);
         }
         
         // Find the user in our map
@@ -70,6 +98,7 @@ async function migrateComments() {
         
         if (user) {
           // Update to new format
+          console.log(`Found user ${user.username} for comment ${i}`);
           post.comments[i].user = {
             _id: user._id,
             username: user.username,
@@ -77,6 +106,7 @@ async function migrateComments() {
           };
         } else {
           // Set anonymous user if we can't find the user
+          console.log(`No user found for comment ${i}, setting to Anonymous`);
           post.comments[i].user = {
             _id: comment.user || null,
             username: 'Anonymous User',
@@ -89,8 +119,12 @@ async function migrateComments() {
       
       // Save the post if we made changes
       if (updated) {
-        await post.save();
-        console.log(`Updated comments for post: ${post._id}`);
+        try {
+          await post.save();
+          console.log(`Updated comments for post: ${post._id}`);
+        } catch (err) {
+          console.error(`Error saving post ${post._id}:`, err);
+        }
       } else {
         console.log(`No updates needed for post: ${post._id}`);
       }

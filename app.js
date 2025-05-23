@@ -6195,6 +6195,9 @@ app.get('/post/:id', async (req, res) => {
       return res.status(404).send('Post not found');
     }
     
+    // Define default image path
+    const defaultProfilePicture = '/images/default-user.png';
+    
     // Process comments to ensure profilePicture has a value
     if (post.comments && post.comments.length > 0) {
       post.comments.forEach(comment => {
@@ -6221,7 +6224,7 @@ app.get('/post/:id', async (req, res) => {
       post,
       uniqueRegions,
       user: req.session.user || null,
-      defaultProfilePicture: '/images/default-user.png'  // Pass default image path to the template
+      defaultProfilePicture: defaultProfilePicture  // Pass default image path to the template
     });
   } catch (error) {
     console.error('Error fetching post:', error);
