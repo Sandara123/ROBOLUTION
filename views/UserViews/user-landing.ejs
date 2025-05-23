@@ -207,6 +207,7 @@
       gap: 20px;
       width: 100%;
       min-width: 100%;
+      transition: transform 0.5s ease; /* Smooth animation */
     }
     
     /* Active timeframe container */
@@ -975,52 +976,82 @@
       };
       
       let currentPosition = 0;
+      let postsPerSlide = 3; // Number of posts to slide at once
       
       // Function to update button states and max scroll based on current container
       function updateSliderState() {
         const container = getVisibleContainer();
         if (!container) return;
         
-        const slideWidth = document.querySelector('.trending-post')?.offsetWidth + 20 || 300; // 20px gap
-        const visibleWidth = slider.clientWidth;
-        const contentWidth = container.scrollWidth;
-        const maxScroll = Math.max(0, contentWidth - visibleWidth);
+        const posts = container.querySelectorAll('.trending-post');
+        if (posts.length === 0) return;
         
-        // Reset position if it's beyond the maximum for this container
-        if (currentPosition > maxScroll) {
-          currentPosition = maxScroll;
-          container.style.transform = `translateX(-${currentPosition}px)`;
-        }
+        const slideWidth = posts[0].offsetWidth + 20; // Post width + gap
+        const visibleWidth = slider.clientWidth;
+        
+        // Calculate max pages based on full post widths
+        const totalPosts = posts.length;
+        const postsPerPage = Math.floor(visibleWidth / slideWidth) || 1;
+        const totalPages = Math.ceil(totalPosts / postsPerPage);
+        const currentPage = Math.round(currentPosition / (slideWidth * postsPerPage));
+        
+        // Calculate total content width
+        const contentWidth = totalPosts * slideWidth;
+        const maxScroll = Math.max(0, contentWidth - visibleWidth);
         
         // Update button states
         prevBtn.style.opacity = currentPosition <= 0 ? '0.5' : '1';
-        nextBtn.style.opacity = currentPosition >= maxScroll ? '0.5' : '1';
+        prevBtn.style.pointerEvents = currentPosition <= 0 ? 'none' : 'auto';
         
-        return { slideWidth, maxScroll };
+        nextBtn.style.opacity = currentPosition >= maxScroll ? '0.5' : '1';
+        nextBtn.style.pointerEvents = currentPosition >= maxScroll ? 'none' : 'auto';
+        
+        return { 
+          slideWidth, 
+          maxScroll, 
+          postsPerPage,
+          totalPages,
+          currentPage 
+        };
       }
       
-      // Initialize button states
-      updateSliderState();
+      // Initialize slider state
+      window.setTimeout(updateSliderState, 100); // Small delay to ensure DOM is ready
       
       // Previous slide button
       prevBtn.addEventListener('click', function() {
-        const { slideWidth } = updateSliderState();
         const container = getVisibleContainer();
-        if (!container || currentPosition <= 0) return;
+        if (!container) return;
         
-        currentPosition = Math.max(0, currentPosition - slideWidth * 3);
+        const { slideWidth, postsPerPage } = updateSliderState() || { slideWidth: 300, postsPerPage: 3 };
+        const slideAmount = slideWidth * postsPerSlide;
+        
+        // Snap to previous page of posts
+        currentPosition = Math.max(0, currentPosition - slideAmount);
+        
+        // Apply smooth transition
+        container.style.transition = 'transform 0.5s ease';
         container.style.transform = `translateX(-${currentPosition}px)`;
+        
         updateSliderState();
       });
       
       // Next slide button
       nextBtn.addEventListener('click', function() {
-        const { slideWidth, maxScroll } = updateSliderState();
         const container = getVisibleContainer();
-        if (!container || currentPosition >= maxScroll) return;
+        if (!container) return;
         
-        currentPosition = Math.min(maxScroll, currentPosition + slideWidth * 3);
+        const { slideWidth, maxScroll, postsPerPage } = updateSliderState() || 
+          { slideWidth: 300, maxScroll: 1000, postsPerPage: 3 };
+        const slideAmount = slideWidth * postsPerSlide;
+        
+        // Snap to next page of posts
+        currentPosition = Math.min(maxScroll, currentPosition + slideAmount);
+        
+        // Apply smooth transition
+        container.style.transition = 'transform 0.5s ease';
         container.style.transform = `translateX(-${currentPosition}px)`;
+        
         updateSliderState();
       });
       
@@ -1056,7 +1087,37 @@
       });
       
       // Recalculate on window resize
-      window.addEventListener('resize', updateSliderState);
+      window.addEventListener('resize', function() {
+        const container = getVisibleContainer();
+        if (!container) return;
+        
+        // Get updated state
+        const { maxScroll } = updateSliderState() || { maxScroll: 0 };
+        
+        // Ensure we're not scrolled past the max
+        if (currentPosition > maxScroll) {
+          currentPosition = maxScroll;
+          container.style.transform = `translateX(-${currentPosition}px)`;
+        }
+      });
+    }
+    
+    // Handle back-to-top button
+    const backToTopButton = document.getElementById('backToTop');
+    
+    if (backToTopButton) {
+      window.addEventListener('scroll', function() {
+        if (window.pageYOffset > 300) {
+          backToTopButton.classList.add('show');
+        } else {
+          backToTopButton.classList.remove('show');
+        }
+      });
+      
+      backToTopButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
     }
     
     // Check if user is logged in using a cookie check
