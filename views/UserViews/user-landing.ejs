@@ -638,26 +638,53 @@
             const oneMonthAgo = new Date();
             oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
             
-            // Filter posts from last month and sort by upvotes (if available)
-            const recentPosts = posts
-              .filter(post => new Date(post.createdAt) >= oneMonthAgo)
-              .sort((a, b) => {
-                const aUpvotes = a.upvotes ? a.upvotes.length : 0;
-                const bUpvotes = b.upvotes ? b.upvotes.length : 0;
-                return bUpvotes - aUpvotes; // Sort by upvote count, descending
-              })
-              .slice(0, 15); // Limit to 15 posts
+            // Debug info - check if posts have upvotes field
+            console.log('Total posts available:', posts.length);
+            if (posts.length > 0) {
+              console.log('Sample post upvotes field:', posts[0].upvotes ? `${posts[0].upvotes.length} upvotes` : 'no upvotes field');
+            }
+            
+            // Make a separate array to avoid modifying the original posts
+            let trendingPosts = [...posts];
+            
+            // Filter posts from last month
+            trendingPosts = trendingPosts.filter(post => new Date(post.createdAt) >= oneMonthAgo);
+            console.log('Posts from last month:', trendingPosts.length);
+            
+            // Force sort ONLY by upvotes count, ignoring date
+            trendingPosts.sort((a, b) => {
+              const aUpvotes = a.upvotes && Array.isArray(a.upvotes) ? a.upvotes.length : 0;
+              const bUpvotes = b.upvotes && Array.isArray(b.upvotes) ? b.upvotes.length : 0;
+              return bUpvotes - aUpvotes; // Sort by upvote count, descending
+            });
+            
+            // Debug info - check sorting results
+            if (trendingPosts.length >= 2) {
+              console.log('First trending post:', {
+                title: trendingPosts[0].title,
+                upvotes: trendingPosts[0].upvotes ? trendingPosts[0].upvotes.length : 0,
+                date: new Date(trendingPosts[0].createdAt).toLocaleDateString()
+              });
+              console.log('Second trending post:', {
+                title: trendingPosts[1].title,
+                upvotes: trendingPosts[1].upvotes ? trendingPosts[1].upvotes.length : 0,
+                date: new Date(trendingPosts[1].createdAt).toLocaleDateString()
+              });
+            }
+            
+            // Limit to 15 posts
+            trendingPosts = trendingPosts.slice(0, 15);
           %>
           
-          <% if (recentPosts.length > 0) { %>
-            <% recentPosts.forEach(post => { %>
+          <% if (trendingPosts.length > 0) { %>
+            <% trendingPosts.forEach(post => { %>
               <a href="/post/<%= post._id %>" class="trending-post">
                 <img src="<%= post.imageUrl %>" alt="<%= post.title %>">
                 <div class="trending-post-overlay">
                   <h3 class="trending-post-title"><%= post.title %></h3>
                   <div class="trending-post-info">
                     <span><i class="far fa-calendar-alt"></i> <%= new Date(post.createdAt).toLocaleDateString() %></span>
-                    <span><i class="fas fa-arrow-up"></i> <%= post.upvotes ? post.upvotes.length : 0 %></span>
+                    <span><i class="fas fa-arrow-up"></i> <%= post.upvotes ? post.upvotes.length : 0 %> upvotes</span>
                   </div>
                 </div>
               </a>
