@@ -2301,206 +2301,41 @@ app.get('/admin-regional', async (req, res) => {
 // Route to show individual post details
 app.get('/post/:id', async (req, res) => {
   try {
-    console.log('Accessing post with ID:', req.params.id);
+    let post;
     
-    const postsCollection = robolutionDb.collection('posts');
-    let post = null;
-    const postId = req.params.id;
-
-    // Try ObjectId lookup first
-    if (postId.match(/^[0-9a-fA-F]{24}$/)) {
-      try {
-        const ObjectId = require('mongodb').ObjectId;
-        post = await postsCollection.findOne({ _id: new ObjectId(postId) });
-        console.log('ObjectId lookup result:', post ? 'Found' : 'Not found');
-      } catch (err) {
-        console.error('Error with ObjectId conversion:', err.message);
+    try {
+      // First try standard mongoose findById
+      post = await Post.findById(req.params.id);
+      
+      // If not found and ID seems valid
+      if (!post && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        // Try creating an ObjectId
+        const ObjectId = mongoose.Types.ObjectId;
+        const postId = new ObjectId(req.params.id);
+        post = await Post.findOne({ _id: postId });
       }
-    }
-
-    // Try direct string ID lookup if ObjectId failed or ID is not in ObjectId format
-    if (!post) {
-      post = await postsCollection.findOne({ _id: postId });
-      console.log('Direct string ID lookup result:', post ? 'Found' : 'Not found');
-    }
-    
-    // Try by title if still not found
-    if (!post) {
-      post = await postsCollection.findOne({ title: { $regex: new RegExp(postId, 'i') } });
-      console.log('Title search result:', post ? 'Found' : 'Not found');
+      
+      // Try as string ID if still not found
+      if (!post) {
+        post = await Post.findOne({ _id: req.params.id });
+      }
+    } catch (idError) {
+      console.error('Error converting post ID:', idError);
+      // Continue to check if post was found
     }
     
     if (!post) {
-      console.log('Post still not found, checking database structure...');
-      const postsSample = await postsCollection.find().limit(1).toArray();
-      console.log('Sample post structure:', JSON.stringify(postsSample, null, 2));
-      console.error('Post not found with ID:', postId);
+      console.error('Post not found with ID:', req.params.id);
       return res.status(404).send('Post not found');
     }
     
-    const postObject = JSON.parse(JSON.stringify(post));
-
-    // Populate user details for comments
-    if (postObject.comments && postObject.comments.length > 0) {
-      const usersCollection = robolutionDb.collection('users');
-      for (let i = 0; i < postObject.comments.length; i++) {
-        const comment = postObject.comments[i];
-        if (comment.user) {
-          let commentUser = null;
-          const userIdStr = comment.user.toString();
-          if (userIdStr.match(/^[0-9a-fA-F]{24}$/)) {
-            try {
-              commentUser = await usersCollection.findOne({ _id: new require('mongodb').ObjectId(userIdStr) });
-            } catch (e) { /* ignore error, try string */ }
-          }
-          if (!commentUser) {
-             commentUser = await usersCollection.findOne({ _id: userIdStr });
-          }
-          if (commentUser) {
-            comment.username = commentUser.username; // Use username from User doc
-            comment.profilePicture = commentUser.profilePicture || '/images/default-profile.jpg';
-          } else {
-            // Fallback if user not found (e.g., deleted account)
-            comment.username = 'Unknown User';
-            comment.profilePicture = '/images/default-profile.jpg';
-          }
-        }
-      }
-    }
-    
-    // Check if the current user has upvoted this post
-    let userHasUpvoted = false;
-    if (req.session.user && post.upvotes) {
-        // Ensure upvotes is an array of ObjectIds or strings that can be converted
-        userHasUpvoted = post.upvotes.some(upvoteUserId => {
-            const currentUserId = req.session.user.id || req.session.user._id;
-            return upvoteUserId.toString() === currentUserId.toString();
-        });
-    }
-
     res.render('UserViews/post-detail', { 
-      post: postObject,
-      req: req, // Passing req for session access in template
-      userHasUpvoted: userHasUpvoted, // Pass upvote status to template
-      moment: moment // Pass moment for date formatting in comments
+      post,
+      req: req
     });
   } catch (error) {
     console.error('Error fetching post details:', error);
     res.status(500).send('An error occurred while fetching the post details');
-  }
-});
-
-// Route to handle upvoting a post
-app.post('/post/:id/upvote', requireLogin, async (req, res) => {
-  try {
-    const postIdStr = req.params.id;
-    const userId = req.session.user.id || req.session.user._id; // Get user ID from session
-    const postsCollection = robolutionDb.collection('posts');
-    const ObjectId = require('mongodb').ObjectId;
-
-    let postObjectId;
-    try {
-        postObjectId = new ObjectId(postIdStr);
-    } catch (e) {
-        return res.status(400).json({ success: false, message: 'Invalid post ID format.' });
-    }
-    
-    const post = await postsCollection.findOne({ _id: postObjectId });
-
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    const userIdObj = new ObjectId(userId); // Convert current user's ID to ObjectId for comparison
-
-    // Check if user has already upvoted
-    const upvoteIndex = post.upvotes ? post.upvotes.findIndex(uid => uid.equals(userIdObj)) : -1;
-
-    if (upvoteIndex > -1) {
-      // User has upvoted, so remove upvote (toggle off)
-      await postsCollection.updateOne(
-        { _id: postObjectId },
-        { $pull: { upvotes: userIdObj } }
-      );
-    } else {
-      // User has not upvoted, so add upvote (toggle on)
-      await postsCollection.updateOne(
-        { _id: postObjectId },
-        { $addToSet: { upvotes: userIdObj } } // Use $addToSet to prevent duplicate upvotes
-      );
-    }
-
-    // Fetch the updated post to get the new upvote count
-    const updatedPost = await postsCollection.findOne({ _id: postObjectId });
-    res.json({ success: true, upvotes: updatedPost.upvotes.length });
-
-  } catch (error) {
-    console.error('Error upvoting post:', error);
-    res.status(500).json({ success: false, message: 'Failed to upvote post.' });
-  }
-});
-
-// Route to handle adding a comment
-app.post('/post/:id/comment', requireLogin, async (req, res) => {
-  try {
-    const postIdStr = req.params.id;
-    const { text } = req.body;
-    const userId = req.session.user.id || req.session.user._id; // Get user ID from session
-    const username = req.session.user.username; // Get username from session
-
-    if (!text || text.trim() === "") {
-        return res.status(400).json({ success: false, message: 'Comment text cannot be empty.' });
-    }
-    
-    const postsCollection = robolutionDb.collection('posts');
-    const usersCollection = robolutionDb.collection('users');
-    const ObjectId = require('mongodb').ObjectId;
-
-    let postObjectId;
-    try {
-        postObjectId = new ObjectId(postIdStr);
-    } catch (e) {
-        return res.status(400).json({ success: false, message: 'Invalid post ID format.' });
-    }
-
-    const post = await postsCollection.findOne({ _id: postObjectId });
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
-
-    // Fetch user's profile picture
-    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
-    const profilePicture = user ? user.profilePicture : '/images/default-profile.jpg';
-
-    const newComment = {
-      _id: new ObjectId(), // Generate a new ObjectId for the comment
-      user: new ObjectId(userId),
-      username: username,
-      profilePicture: profilePicture,
-      text: text,
-      createdAt: new Date()
-    };
-
-    await postsCollection.updateOne(
-      { _id: postObjectId },
-      { $push: { comments: { $each: [newComment], $sort: { createdAt: -1 } } } } // Add to comments array and sort by date
-    );
-    
-    // Return the new comment object (or just essential parts) so the client can display it
-    res.json({ 
-        success: true, 
-        comment: {
-            ...newComment,
-            // Convert ObjectId to string for JSON response if needed by client
-            _id: newComment._id.toString(), 
-            user: newComment.user.toString(),
-            createdAtFormatted: moment(newComment.createdAt).fromNow() // Format date for display
-        } 
-    });
-
-  } catch (error) {
-    console.error('Error adding comment:', error);
-    res.status(500).json({ success: false, message: 'Failed to add comment.' });
   }
 });
 
@@ -5108,86 +4943,54 @@ app.get('/post/:id', async (req, res) => {
   try {
     console.log('Accessing post with ID:', req.params.id);
     
+    // DIRECT COLLECTION ACCESS - bypass Mongoose completely
+    // This is the most direct and reliable way to access the data
     const postsCollection = robolutionDb.collection('posts');
+    
+    // Try multiple query approaches
     let post = null;
-    const postId = req.params.id;
-
-    // Try ObjectId lookup first
-    if (postId.match(/^[0-9a-fA-F]{24}$/)) {
+    
+    // 1. Try direct string ID lookup
+    post = await postsCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', post ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!post && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
       try {
         const ObjectId = require('mongodb').ObjectId;
-        post = await postsCollection.findOne({ _id: new ObjectId(postId) });
+        post = await postsCollection.findOne({ _id: new ObjectId(req.params.id) });
         console.log('ObjectId lookup result:', post ? 'Found' : 'Not found');
       } catch (err) {
         console.error('Error with ObjectId conversion:', err.message);
       }
     }
-
-    // Try direct string ID lookup if ObjectId failed or ID is not in ObjectId format
-    if (!post) {
-      post = await postsCollection.findOne({ _id: postId });
-      console.log('Direct string ID lookup result:', post ? 'Found' : 'Not found');
-    }
     
-    // Try by title if still not found
+    // 3. Try by title if still not found
     if (!post) {
-      post = await postsCollection.findOne({ title: { $regex: new RegExp(postId, 'i') } });
+      // Search by title as a last resort
+      post = await postsCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
       console.log('Title search result:', post ? 'Found' : 'Not found');
     }
     
+    // Log the full database structure if still not found
     if (!post) {
       console.log('Post still not found, checking database structure...');
+      
+      // Get collection structure
       const postsSample = await postsCollection.find().limit(1).toArray();
       console.log('Sample post structure:', JSON.stringify(postsSample, null, 2));
-      console.error('Post not found with ID:', postId);
+      
+      console.error('Post not found with ID:', req.params.id);
       return res.status(404).send('Post not found');
     }
     
+    // Convert MongoDB document to a JavaScript object 
+    // This ensures compatibility with templates and avoids MongoDB document restrictions
     const postObject = JSON.parse(JSON.stringify(post));
-
-    // Populate user details for comments
-    if (postObject.comments && postObject.comments.length > 0) {
-      const usersCollection = robolutionDb.collection('users');
-      for (let i = 0; i < postObject.comments.length; i++) {
-        const comment = postObject.comments[i];
-        if (comment.user) {
-          let commentUser = null;
-          const userIdStr = comment.user.toString();
-          if (userIdStr.match(/^[0-9a-fA-F]{24}$/)) {
-            try {
-              commentUser = await usersCollection.findOne({ _id: new require('mongodb').ObjectId(userIdStr) });
-            } catch (e) { /* ignore error, try string */ }
-          }
-          if (!commentUser) {
-             commentUser = await usersCollection.findOne({ _id: userIdStr });
-          }
-          if (commentUser) {
-            comment.username = commentUser.username; // Use username from User doc
-            comment.profilePicture = commentUser.profilePicture || '/images/default-profile.jpg';
-          } else {
-            // Fallback if user not found (e.g., deleted account)
-            comment.username = 'Unknown User';
-            comment.profilePicture = '/images/default-profile.jpg';
-          }
-        }
-      }
-    }
     
-    // Check if the current user has upvoted this post
-    let userHasUpvoted = false;
-    if (req.session.user && post.upvotes) {
-        // Ensure upvotes is an array of ObjectIds or strings that can be converted
-        userHasUpvoted = post.upvotes.some(upvoteUserId => {
-            const currentUserId = req.session.user.id || req.session.user._id;
-            return upvoteUserId.toString() === currentUserId.toString();
-        });
-    }
-
     res.render('UserViews/post-detail', { 
       post: postObject,
-      req: req, // Passing req for session access in template
-      userHasUpvoted: userHasUpvoted, // Pass upvote status to template
-      moment: moment // Pass moment for date formatting in comments
+      req: req
     });
   } catch (error) {
     console.error('Error fetching post details:', error);
@@ -5195,159 +4998,1247 @@ app.get('/post/:id', async (req, res) => {
   }
 });
 
-// Route to handle upvoting a post
-app.post('/post/:id/upvote', requireLogin, async (req, res) => {
-  try {
-    const postIdStr = req.params.id;
-    const userId = req.session.user.id || req.session.user._id; // Get user ID from session
-    const postsCollection = robolutionDb.collection('posts');
-    const ObjectId = require('mongodb').ObjectId;
+// Update route to show edit post page with direct MongoDB access
+app.get('/edit-post/:id', requireAdmin, async (req, res) => {
+  // Check if user is logged in and is an admin
+  if (!req.session.user || !req.session.user.isAdmin) {
+    return res.redirect('/login');
+  }
 
-    let postObjectId;
-    try {
-        postObjectId = new ObjectId(postIdStr);
-    } catch (e) {
-        return res.status(400).json({ success: false, message: 'Invalid post ID format.' });
+  try {
+    console.log('Accessing post for editing, ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS - bypass Mongoose completely
+    const postsCollection = robolutionDb.collection('posts');
+    
+    // Get all posts for regions dropdown using native MongoDB
+    const posts = await postsCollection.find().toArray();
+
+    // Try multiple query approaches to find the specific post
+    let post = null;
+    
+    // 1. Try direct string ID lookup
+    post = await postsCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', post ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!post && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        post = await postsCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', post ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
     }
     
-    const post = await postsCollection.findOne({ _id: postObjectId });
+    // 3. Try by title if still not found
+    if (!post) {
+      // Search by title as a last resort
+      post = await postsCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
+      console.log('Title search result:', post ? 'Found' : 'Not found');
+    }
 
     if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
+      // Log the full database structure if still not found
+      console.log('Post still not found, checking database structure...');
+      
+      // Get collection structure
+      const postsSample = await postsCollection.find().limit(1).toArray();
+      console.log('Sample post structure:', JSON.stringify(postsSample, null, 2));
+      
+      console.error('Post not found with ID:', req.params.id);
+      return res.status(404).send('Post not found');
     }
 
-    const userIdObj = new ObjectId(userId); // Convert current user's ID to ObjectId for comparison
+    // Convert MongoDB document to a JavaScript object
+    const postObject = JSON.parse(JSON.stringify(post));
+    
+    // Get unique regions from posts
+    const uniqueRegions = [...new Set(posts
+      .map(p => p.region)
+      .filter(region => region && region !== 'All')
+    )].sort();
 
-    // Check if user has already upvoted
-    const upvoteIndex = post.upvotes ? post.upvotes.findIndex(uid => uid.equals(userIdObj)) : -1;
+    const isDashboard = req.query.dashboard === 'true'; // Capture dashboard status
 
-    if (upvoteIndex > -1) {
-      // User has upvoted, so remove upvote (toggle off)
-      await postsCollection.updateOne(
-        { _id: postObjectId },
-        { $pull: { upvotes: userIdObj } }
-      );
-    } else {
-      // User has not upvoted, so add upvote (toggle on)
-      await postsCollection.updateOne(
-        { _id: postObjectId },
-        { $addToSet: { upvotes: userIdObj } } // Use $addToSet to prevent duplicate upvotes
-      );
-    }
-
-    // Fetch the updated post to get the new upvote count
-    const updatedPost = await postsCollection.findOne({ _id: postObjectId });
-    res.json({ success: true, upvotes: updatedPost.upvotes.length });
-
+    res.render('edit-post', { 
+      post: postObject,
+      uniqueRegions,
+      dashboard: isDashboard // Pass dashboard status to the template
+    });
   } catch (error) {
-    console.error('Error upvoting post:', error);
-    res.status(500).json({ success: false, message: 'Failed to upvote post.' });
+    console.error('Error finding post:', error);
+    res.status(500).send('Server error');
   }
 });
 
-// Route to handle adding a comment
-app.post('/post/:id/comment', requireLogin, async (req, res) => {
+// Update both category detail routes with direct MongoDB access
+app.get('/categories/:id', async (req, res) => {
   try {
-    const postIdStr = req.params.id;
-    const { text } = req.body;
-    const userId = req.session.user.id || req.session.user._id; // Get user ID from session
-    const username = req.session.user.username; // Get username from session
-
-    if (!text || text.trim() === "") {
-        return res.status(400).json({ success: false, message: 'Comment text cannot be empty.' });
+    console.log('Accessing category with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const categoriesCollection = robolutionDb.collection('categories');
+    
+    // Try multiple query approaches
+    let category = null;
+    
+    // 1. Try direct string ID lookup
+    category = await categoriesCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', category ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!category && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        category = await categoriesCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', category ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
     }
     
+    // 3. Try by title if still not found
+    if (!category) {
+      category = await categoriesCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
+      console.log('Title search result:', category ? 'Found' : 'Not found');
+    }
+    
+    if (category) {
+      // Convert MongoDB document to a JavaScript object
+      const categoryObject = JSON.parse(JSON.stringify(category));
+      res.render('category-details', { event: categoryObject });
+    } else {
+      // Log the full database structure if still not found
+      console.log('Category still not found, checking database structure...');
+      
+      // Get collection structure
+      const categorySample = await categoriesCollection.find().limit(1).toArray();
+      console.log('Sample category structure:', JSON.stringify(categorySample, null, 2));
+      
+      console.error('Event not found with ID:', req.params.id);
+      res.status(404).send('Event not found');
+    }
+  } catch (error) {
+    console.error('Error fetching category details:', error);
+    res.status(500).send('An error occurred while fetching the category details');
+  }
+});
+
+app.get('/user-categories/:id', async (req, res) => {
+  try {
+    console.log('Accessing user category with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const categoriesCollection = robolutionDb.collection('categories');
+    
+    // Try multiple query approaches
+    let category = null;
+    
+    // 1. Try direct string ID lookup
+    category = await categoriesCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', category ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!category && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        category = await categoriesCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', category ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by title if still not found
+    if (!category) {
+      category = await categoriesCollection.findOne({ title: { $regex: new RegExp(req.params.id, 'i') } });
+      console.log('Title search result:', category ? 'Found' : 'Not found');
+    }
+    
+    if (category) {
+      // Convert MongoDB document to a JavaScript object
+      const categoryObject = JSON.parse(JSON.stringify(category));
+      res.render('UserViews/user-category_details', { event: categoryObject });
+    } else {
+      // Log the full database structure if still not found
+      console.log('Category still not found, checking database structure...');
+      
+      // Get collection structure
+      const categorySample = await categoriesCollection.find().limit(1).toArray();
+      console.log('Sample category structure:', JSON.stringify(categorySample, null, 2));
+      
+      console.error('Event not found with ID:', req.params.id);
+      res.status(404).send('Event not found');
+    }
+  } catch (error) {
+    console.error('Error fetching category details:', error);
+    res.status(500).send('An error occurred while fetching the category details');
+  }
+});
+
+// Update route to view individual registration details with direct MongoDB access
+app.get('/registration/:id', async (req, res) => {
+  try {
+    console.log('Accessing registration with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const registrationsCollection = robolutionDb.collection('registrations');
+    
+    // Try multiple query approaches
+    let registration = null;
+    
+    // 1. Try direct string ID lookup
+    registration = await registrationsCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', registration ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!registration && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        registration = await registrationsCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', registration ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by email or fullname if still not found
+    if (!registration) {
+      registration = await registrationsCollection.findOne({ 
+        $or: [
+          { email: { $regex: new RegExp(req.params.id, 'i') } },
+          { fullname: { $regex: new RegExp(req.params.id, 'i') } }
+        ] 
+      });
+      console.log('Email/Name search result:', registration ? 'Found' : 'Not found');
+    }
+    
+    if (!registration) {
+      // Log the full database structure if still not found
+      console.log('Registration still not found, checking database structure...');
+      
+      // Get collection structure
+      const registrationSample = await registrationsCollection.find().limit(1).toArray();
+      console.log('Sample registration structure:', JSON.stringify(registrationSample, null, 2));
+      
+      console.error('Registration not found with ID:', req.params.id);
+      return res.status(404).send('Registration not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const registrationObject = JSON.parse(JSON.stringify(registration));
+    
+    res.render('registration-detail', { 
+      registration: registrationObject, 
+      user: req.session.user 
+    });
+  } catch (error) {
+    console.error('Error fetching registration details:', error);
+    res.status(500).send('An error occurred while fetching registration details');
+  }
+});
+
+// Update the route to view user profile with direct MongoDB collection access
+app.get('/profile', requireLogin, async (req, res) => { // Added requireLogin
+  // Check if user is logged in -- REMOVED MANUAL CHECK
+  // if (!req.session || !req.session.user || !req.session.user.id) {
+  //   console.log('No valid session for profile access:', { 
+  //     hasSession: !!req.session,
+  //     hasUser: req.session ? !!req.session.user : false,
+  //     userId: req.session && req.session.user ? req.session.user.id : null
+  //   });
+    
+  //   // Add redirect parameter so user can return to profile page after logging in
+  //   return res.redirect('/login?redirect=/profile');
+  // }
+  
+  try {
+    console.log('Attempting to find user with ID:', req.session.user.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const usersCollection = robolutionDb.collection('users');
+    
+    // Try multiple query approaches
+    let user = null;
+    
+    // 1. Try direct string ID lookup
+    user = await usersCollection.findOne({ _id: req.session.user.id });
+    console.log('Direct string ID lookup result:', user ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!user && req.session.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        user = await usersCollection.findOne({ _id: new ObjectId(req.session.user.id) });
+        console.log('ObjectId lookup result:', user ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by username if still not found
+    if (!user && req.session.user.username) {
+      user = await usersCollection.findOne({ username: req.session.user.username });
+      console.log('Username lookup result:', user ? 'Found' : 'Not found');
+    }
+    
+    // 4. Try by email if still not found and available
+    if (!user && req.session.user.email) {
+      user = await usersCollection.findOne({ email: req.session.user.email });
+      console.log('Email lookup result:', user ? 'Found' : 'Not found');
+    }
+    
+    if (!user) {
+      // User not found in database - likely due to database restore
+      console.log('User not found in database but has session:', req.session.user);
+      
+      // Log the full database structure
+      console.log('User still not found, checking database structure...');
+      
+      // Get collection structure
+      const userSample = await usersCollection.find().limit(1).toArray();
+      console.log('Sample user structure:', JSON.stringify(userSample, null, 2));
+      
+      // Render an error page instead of redirecting to login
+      return res.render('UserViews/user-error', {
+        error: 'Account Not Found',
+        message: 'Your user account could not be found in the database. This may be due to a recent database restore operation. Please sign up for a new account.',
+        actionText: 'Sign Up',
+        actionLink: '/signup',
+        showLogoutButton: true
+      });
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const userObject = JSON.parse(JSON.stringify(user));
+    
+    // Calculate age from birth date if available
+    let age = null;
+    if (userObject.birthDate && userObject.birthDate.month && userObject.birthDate.year) {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+      const currentYear = currentDate.getFullYear();
+      
+      age = currentYear - userObject.birthDate.year;
+      
+      // If birth month is after current month, subtract 1 from age
+      if (userObject.birthDate.month > currentMonth) {
+        age--;
+      }
+    }
+    
+    // Get user's registrations with direct collection access
+    let registrations = [];
+    try {
+      console.log(`Looking for registrations with userId: ${userObject._id}`);
+      
+      // Direct collection access
+      const registrationsCollection = robolutionDb.collection('registrations');
+      
+      if (registrationsCollection) {
+        // Try multiple approaches to find registrations
+        const userId = userObject._id;
+        const userIdString = userObject._id.toString ? userObject._id.toString() : userObject._id;
+        const userEmail = userObject.email;
+        
+        let regQuery = { $or: [] };
+        
+        // Add user ID conditions
+        if (userId) regQuery.$or.push({ userId: userId });
+        if (userIdString) regQuery.$or.push({ userId: userIdString });
+        
+        // Try to convert to ObjectId if it's a string in the right format
+        if (typeof userIdString === 'string' && userIdString.match(/^[0-9a-fA-F]{24}$/)) {
+          try {
+            const ObjectId = require('mongodb').ObjectId;
+            regQuery.$or.push({ userId: new ObjectId(userIdString) });
+          } catch (err) {
+            console.error('Error converting userId to ObjectId:', err.message);
+          }
+        }
+        
+        // Add email condition if available
+        if (userEmail) regQuery.$or.push({ email: userEmail });
+        
+        // Only run query if we have at least one condition
+        if (regQuery.$or.length > 0) {
+          console.log('Registration query:', JSON.stringify(regQuery));
+          registrations = await registrationsCollection.find(regQuery).sort({ registeredAt: -1 }).toArray();
+          console.log(`Found ${registrations.length} registrations`);
+          
+          // Convert registrations to plain objects
+          registrations = JSON.parse(JSON.stringify(registrations));
+        } else {
+          console.log('No valid conditions for registration query');
+        }
+      } else {
+        console.log('Registrations collection not found');
+      }
+    } catch (regError) {
+      console.error('Error fetching registrations:', regError);
+    }
+    
+    // Render the profile page with all necessary data
+    res.render('UserViews/profile', { 
+      user: userObject,
+      age,
+      registrations,
+      profilePicture: userObject.profilePicture || '/images/default-profile.jpg'
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).send('Error fetching user profile');
+  }
+});
+
+// Update account/admin/edit route with direct DB access
+app.get('/account/admin/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    console.log('Accessing admin account with ID:', req.params.id);
+    
+    // Try to access the admin account from both databases
+    let admin = null;
+    
+    // 1. Try adminDB first with direct string ID
+    if (db) {
+      admin = await db.collection('admins').findOne({ _id: req.params.id });
+      console.log('adminDB direct string ID lookup result:', admin ? 'Found' : 'Not found');
+    }
+    
+    // 2. Try adminDB with ObjectID
+    if (!admin && db && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        admin = await db.collection('admins').findOne({ _id: new ObjectId(req.params.id) });
+        console.log('adminDB ObjectId lookup result:', admin ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try adminDB by username
+    if (!admin && db) {
+      admin = await db.collection('admins').findOne({ username: req.params.id });
+      console.log('adminDB username lookup result:', admin ? 'Found' : 'Not found');
+    }
+    
+    // 4. Try robolution admins collection as fallback
+    if (!admin && robolutionDb) {
+      // Try string ID first
+      admin = await robolutionDb.collection('admins').findOne({ _id: req.params.id });
+      console.log('robolutionDb admins direct string ID lookup result:', admin ? 'Found' : 'Not found');
+      
+      // Try ObjectID if needed
+      if (!admin && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
+          const ObjectId = require('mongodb').ObjectId;
+          admin = await robolutionDb.collection('admins').findOne({ _id: new ObjectId(req.params.id) });
+          console.log('robolutionDb admins ObjectId lookup result:', admin ? 'Found' : 'Not found');
+        } catch (err) {
+          console.error('Error with ObjectId conversion for robolutionDb:', err.message);
+        }
+      }
+      
+      // Try username in robolution admins
+      if (!admin) {
+        admin = await robolutionDb.collection('admins').findOne({ username: req.params.id });
+        console.log('robolutionDb admins username lookup result:', admin ? 'Found' : 'Not found');
+      }
+    }
+    
+    if (!admin) {
+      // Log the full database structure if still not found
+      console.log('Admin still not found, checking database structure...');
+      
+      // Get collection structure from both DBs
+      if (db) {
+        const adminSample = await db.collection('admins').find().limit(1).toArray();
+        console.log('Sample adminDB admin structure:', JSON.stringify(adminSample, null, 2));
+      }
+      
+      if (robolutionDb) {
+        const robolutionAdminSample = await robolutionDb.collection('admins').find().limit(1).toArray();
+        console.log('Sample robolutionDb admin structure:', JSON.stringify(robolutionAdminSample, null, 2));
+      }
+      
+      console.error('Admin account not found with ID:', req.params.id);
+      return res.status(404).send('Admin account not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const adminObject = JSON.parse(JSON.stringify(admin));
+    
+    // Get unique regions for the dropdown menu using direct collection access
     const postsCollection = robolutionDb.collection('posts');
+    const posts = await postsCollection.find().toArray();
+    const uniqueRegions = [...new Set(posts
+      .map(p => p.region)
+      .filter(region => region && region !== 'All')
+    )].sort();
+    
+    res.render('edit-admin', {
+      admin: adminObject,
+      user: req.session.user,
+      uniqueRegions,
+      dashboard: isDashboard // Pass dashboard status
+    });
+  } catch (error) {
+    console.error('Error fetching admin account:', error);
+    res.status(500).send('An error occurred while fetching account information');
+  }
+});
+
+// Update account/user/edit route with direct MongoDB access
+app.get('/account/user/edit/:id', requireAdmin, async (req, res) => {
+  try {
+    console.log('Accessing user account for editing with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const usersCollection = robolutionDb.collection('users');
+    
+    // Try multiple query approaches
+    let userAccount = null;
+    
+    // 1. Try direct string ID lookup
+    userAccount = await usersCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', userAccount ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!userAccount && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        userAccount = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', userAccount ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by username or email if still not found
+    if (!userAccount) {
+      userAccount = await usersCollection.findOne({ 
+        $or: [
+          { username: req.params.id },
+          { email: req.params.id }
+        ]
+      });
+      console.log('Username/Email search result:', userAccount ? 'Found' : 'Not found');
+    }
+    
+    if (!userAccount) {
+      // Log the full database structure if still not found
+      console.log('User account still not found, checking database structure...');
+      
+      // Get collection structure
+      const userSample = await usersCollection.find().limit(1).toArray();
+      console.log('Sample user account structure:', JSON.stringify(userSample, null, 2));
+      
+      console.error('User account not found with ID:', req.params.id);
+      return res.status(404).send('User account not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const userAccountObject = JSON.parse(JSON.stringify(userAccount));
+    
+    // Get unique regions using direct collection access
+    const postsCollection = robolutionDb.collection('posts');
+    const posts = await postsCollection.find().toArray();
+    const uniqueRegions = [...new Set(posts
+      .map(p => p.region)
+      .filter(region => region && region !== 'All')
+    )].sort();
+    
+    res.render('edit-user', {
+      userAccount: userAccountObject,
+      currentUser: req.session.user,
+      uniqueRegions
+    });
+  } catch (error) {
+    console.error('Error fetching user account:', error);
+    res.status(500).send('An error occurred while fetching account information');
+  }
+});
+
+// Update admin/user-profiles/:id route with direct MongoDB access
+app.get('/admin/user-profiles/:id', requireAdmin, async (req, res) => {
+  try {
+    console.log('Accessing user profile with ID:', req.params.id);
+    
+    // DIRECT COLLECTION ACCESS
+    const usersCollection = robolutionDb.collection('users');
+    
+    // Try multiple query approaches
+    let userProfile = null;
+    
+    // 1. Try direct string ID lookup
+    userProfile = await usersCollection.findOne({ _id: req.params.id });
+    console.log('Direct string ID lookup result:', userProfile ? 'Found' : 'Not found');
+    
+    // 2. Try ObjectID lookup if available
+    if (!userProfile && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      try {
+        const ObjectId = require('mongodb').ObjectId;
+        userProfile = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
+        console.log('ObjectId lookup result:', userProfile ? 'Found' : 'Not found');
+      } catch (err) {
+        console.error('Error with ObjectId conversion:', err.message);
+      }
+    }
+    
+    // 3. Try by username or email if still not found
+    if (!userProfile) {
+      userProfile = await usersCollection.findOne({ 
+        $or: [
+          { username: req.params.id },
+          { email: req.params.id }
+        ]
+      });
+      console.log('Username/Email search result:', userProfile ? 'Found' : 'Not found');
+    }
+    
+    if (!userProfile) {
+      // Log the full database structure if still not found
+      console.log('User profile still not found, checking database structure...');
+      
+      // Get collection structure
+      const userSample = await usersCollection.find().limit(1).toArray();
+      console.log('Sample user profile structure:', JSON.stringify(userSample, null, 2));
+      
+      console.error('User not found with ID:', req.params.id);
+      return res.status(404).send('User not found');
+    }
+    
+    // Convert MongoDB document to a JavaScript object
+    const userProfileObject = JSON.parse(JSON.stringify(userProfile));
+    
+    // Calculate age from birth date if available
+    let age = null;
+    if (userProfileObject.birthDate && userProfileObject.birthDate.month && userProfileObject.birthDate.year) {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const currentYear = currentDate.getFullYear();
+      
+      age = currentYear - userProfileObject.birthDate.year;
+      
+      if (userProfileObject.birthDate.month > currentMonth) {
+        age--;
+      }
+    }
+    
+    res.render('admin-view-user-profile', {
+      userProfile: userProfileObject,
+      age,
+      profilePicture: userProfileObject.profilePicture || '/images/default-profile.jpg',
+      user: req.session.user
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).send('Error fetching user profile');
+  }
+});
+
+// Route to make a user an admin
+app.get('/account/user/make-admin/:id', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    console.log(`Attempting to make user with ID: ${userId} an admin.`);
+
+    // Find the user in the User collection
+    let userToPromote = null;
     const usersCollection = robolutionDb.collection('users');
     const ObjectId = require('mongodb').ObjectId;
 
-    let postObjectId;
+    if (userId.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
+            const userObjectId = new ObjectId(userId);
+            userToPromote = await usersCollection.findOne({ _id: userObjectId });
+            if (userToPromote) console.log('Found user by ObjectId in users collection.');
+        } catch (err) {
+            console.error('Error converting userId to ObjectId or finding user:', err.message);
+            // If ID format is bad or conversion fails, it's an invalid request for this operation
+            req.flash('error', 'Invalid user ID format.');
+            return res.redirect('/manage-accounts');
+        }
+    } else {
+        // If ID is not a valid ObjectId hex string format
+        req.flash('error', 'Invalid user ID format.');
+        return res.redirect('/manage-accounts');
+    }
+
+    if (!userToPromote) {
+      req.flash('error', 'User not found with the provided ID.');
+      return res.redirect('/manage-accounts');
+    }
+
+    console.log(`User found: ${userToPromote.username}. Preparing to promote.`);
+
+    // Check if admin with the same username already exists in adminDB
+    const adminDbAdminsCollection = db.collection('admins');
+    const existingAdmin = await adminDbAdminsCollection.findOne({ username: userToPromote.username });
+
+    if (existingAdmin) {
+      console.log(`Admin with username ${userToPromote.username} already exists.`);
+      req.flash('error', `An admin with username '${userToPromote.username}' already exists.`);
+      return res.redirect('/manage-accounts');
+    }
+
+    // Prepare admin data
+    const adminData = {
+      username: userToPromote.username,
+      password: userToPromote.password, // Copy hashed password
+      role: 'admin', // Assign admin role
+      twoFactorSecret: userToPromote.twoFactorSecret,
+      twoFactorEnabled: userToPromote.twoFactorEnabled,
+      backupCodes: userToPromote.backupCodes,
+      needs2FASetup: userToPromote.needs2FASetup || false,
+      createdAt: userToPromote.createdAt || new Date(),
+      // Preserve original _id if possible, or let MongoDB generate a new one
+      // _id: userToPromote._id 
+    };
+    
+    // If the original user ID is an ObjectId, try to use it for the new admin record
+    // Otherwise, let MongoDB generate a new _id for the admin record.
+    if (userToPromote._id && (userToPromote._id.constructor.name === 'ObjectID' || userToPromote._id.constructor.name === 'ObjectId')) {
+        adminData._id = userToPromote._id;
+    } else if (typeof userToPromote._id === 'string' && userToPromote._id.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
+            const ObjectId = require('mongodb').ObjectId;
+            adminData._id = new ObjectId(userToPromote._id);
+        } catch (e) {
+            console.log('Could not convert user _id to ObjectId for admin record, will let MongoDB generate new _id');
+        }
+    }
+
+    console.log('Admin data prepared:', adminData);
+
+    // Insert into adminDB admins collection
+    await adminDbAdminsCollection.insertOne(adminData);
+    console.log(`User ${userToPromote.username} added to adminDB admins collection.`);
+
+    // Also add/update in robolutionDb admins collection for redundancy and direct query consistency
+    const robolutionDbAdminsCollection = robolutionDb.collection('admins');
+    // Use upsert to add if not exists, or update if exists (e.g., if ID was preserved)
+    await robolutionDbAdminsCollection.updateOne(
+        { _id: adminData._id || new require('mongodb').ObjectId() }, // Match by ID if it was set
+        { $set: adminData },
+        { upsert: true }
+    );
+    console.log(`User ${userToPromote.username} upserted into robolutionDb admins collection.`);
+
+    // Delete from the original User collection
+    // Use the original _id from userToPromote for deletion
+    let deleteResultUser;
+    if (userToPromote._id.constructor.name === 'ObjectID' || userToPromote._id.constructor.name === 'ObjectId') {
+        deleteResultUser = await usersCollection.deleteOne({ _id: userToPromote._id });
+    } else if (typeof userToPromote._id === 'string' && userToPromote._id.match(/^[0-9a-fA-F]{24}$/)){
+        deleteResultUser = await usersCollection.deleteOne({ _id: new require('mongodb').ObjectId(userToPromote._id) });
+    } else {
+        // Fallback to deleting by string id if it's not an ObjectId and doesn't look like one
+        deleteResultUser = await usersCollection.deleteOne({ _id: userToPromote._id.toString() });
+    }
+
+    if (deleteResultUser.deletedCount === 1) {
+      console.log(`User ${userToPromote.username} deleted from users collection.`);
+      req.flash('success', `User '${userToPromote.username}' has been successfully promoted to admin.`);
+    } else {
+      console.log(`Failed to delete user ${userToPromote.username} from users collection. User might have already been deleted or ID mismatch.`);
+      // Even if deletion fails, the admin record was created, so it's a partial success.
+      // Log this as an inconsistency.
+      req.flash('warning', `User '${userToPromote.username}' promoted to admin, but there was an issue removing the original user record. Please check manually.`);
+    }
+
+    res.redirect('/manage-accounts');
+
+  } catch (error) {
+    console.error('Error promoting user to admin:', error);
+    req.flash('error', 'An error occurred while promoting the user to admin.');
+    res.redirect('/manage-accounts');
+  }
+});
+
+// Route for admin dashboard
+app.get('/admin-dashboard', requireAdmin, async (req, res) => {
     try {
-        postObjectId = new ObjectId(postIdStr);
-    } catch (e) {
-        return res.status(400).json({ success: false, message: 'Invalid post ID format.' });
+        const posts = await Post.find({}); // For uniqueRegions
+        const uniqueRegions = [...new Set(posts.filter(post => post.region && post.region !== 'All').map(post => post.region))].sort();
+
+        // Fetch counts for dashboard cards
+        const totalPosts = await robolutionDb.collection('posts').countDocuments();
+        const totalRegistrations = await robolutionDb.collection('registrations').countDocuments();
+        const totalCategories = await robolutionDb.collection('categories').countDocuments();
+        
+        // For accounts, we need to sum users from the 'users' collection 
+        // and admins from the 'admins' collection in adminDB
+        const totalRegularUsers = await robolutionDb.collection('users').countDocuments();
+        const totalAdmins = await db.collection('admins').countDocuments(); // 'db' is the adminDB connection
+        const totalUserAccounts = totalRegularUsers + totalAdmins;
+        
+        res.render('admin-dashboard', { 
+            user: req.session.user,
+            uniqueRegions: uniqueRegions,
+            pageTitle: 'Admin Dashboard',
+            dashboard: true,
+            stats: {
+                totalPosts,
+                totalRegistrations,
+                totalCategories,
+                totalUserAccounts
+            }
+        });
+    } catch (error) {
+        console.error('Error loading admin dashboard:', error);
+        req.flash('error', 'Error loading dashboard.');
+        res.redirect('/login'); // Or an error page
+    }
+});
+
+// ==== USER PROFILE ROUTES ==== 
+
+// GET route to display user profile page
+app.get('/profile', requireLogin, async (req, res) => {
+    try {
+        // The user object is already populated by requireLogin if successful,
+        // but we need to fetch full details from DB
+        const user = await User.findById(req.session.user.id);
+        if (!user) {
+            req.flash('error', 'User not found.');
+            // If user somehow not found after login, redirect to login.
+            return res.redirect('/login');
+        }
+
+        let age = null;
+        if (user.birthDate && user.birthDate.month && user.birthDate.year) {
+            const birthDate = new Date(user.birthDate.year, user.birthDate.month - 1);
+            const today = new Date();
+            age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+        }
+
+        const registrations = await Registration.find({ userId: user._id }).sort({ registeredAt: -1 });
+
+        res.render('UserViews/profile', {
+            user,
+            age,
+            registrations,
+            profilePicture: user.profilePicture || '/images/default-profile.jpg'
+        });
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        req.flash('error', 'Error fetching profile.');
+        res.redirect('/user-landing'); // Or a generic error page
+    }
+});
+
+// POST route to update user profile
+app.post('/profile/update', requireLogin, upload.single('profilePicture'), async (req, res) => {
+    try {
+        const { birthMonth, birthYear, school, address } = req.body;
+        const user = await User.findById(req.session.user.id);
+
+        if (!user) {
+            // This should ideally not happen if requireLogin works
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (birthMonth && birthYear) {
+            user.birthDate = { month: parseInt(birthMonth), year: parseInt(birthYear) };
+        }
+        // Allow clearing fields by providing empty strings
+        user.school = school !== undefined ? school : user.school;
+        user.address = address !== undefined ? address : user.address;
+
+        if (req.file) {
+            const filePath = req.file.path; // Path from multer
+            const result = await uploadToCloudinary(filePath, 'robolution/profiles');
+            user.profilePicture = result;
+        }
+
+        await user.save();
+        res.json({ success: true, message: 'Profile updated successfully', profilePicture: user.profilePicture });
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ success: false, message: 'Error updating profile' });
+    }
+});
+
+// POST route to change user password from profile
+app.post('/profile/change-password', requireLogin, async (req, res) => {
+    try {
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            return res.status(400).json({ success: false, message: 'All fields are required.' });
+        }
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ success: false, message: 'New passwords do not match.' });
+        }
+         // Add password complexity check (example)
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!passwordRegex.test(newPassword)) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.' });
+        }
+
+        const user = await User.findById(req.session.user.id);
+        if (!user) {
+            // Should not happen due to requireLogin
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Incorrect current password.' });
+        }
+
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
+        res.json({ success: true, message: 'Password changed successfully.' });
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(500).json({ success: false, message: 'Error changing password.' });
+    }
+});
+
+// Update routes for 2FA setup and verification
+// ... existing code ...
+
+// Route for admin to edit the poster video
+app.get('/admin/edit-poster-video', requireAdmin, (req, res) => {
+  const isDashboard = req.query.dashboard === 'true';
+  // === MODIFIED LOGIC START ===
+  let displayedVideoFilename = 'No video uploaded yet.';
+  const posterVideoPath = path.join(__dirname, 'public', 'images', 'Robolution2025.mp4');
+  const posterInfoPath = path.join(__dirname, 'poster-info.json');
+
+  if (fs.existsSync(posterVideoPath)) {
+    displayedVideoFilename = 'Robolution2025.mp4'; // Default if info file is missing
+    if (fs.existsSync(posterInfoPath)) {
+      try {
+        const posterInfoRaw = fs.readFileSync(posterInfoPath, 'utf8');
+        const posterInfo = JSON.parse(posterInfoRaw);
+        if (posterInfo && posterInfo.originalFilename) {
+          displayedVideoFilename = posterInfo.originalFilename;
+        }
+      } catch (readError) {
+        console.error('Error reading poster-info.json:', readError);
+        // Keep default Robolution2025.mp4 if info file is corrupted
+      }
+    }
+  } else {
+    // If Robolution2025.mp4 does not exist, ensure poster-info.json is also removed for consistency
+    if (fs.existsSync(posterInfoPath)) {
+        try {
+            fs.unlinkSync(posterInfoPath);
+            console.log('Removed poster-info.json because Robolution2025.mp4 was not found.');
+        } catch (unlinkError) {
+            console.error('Error removing poster-info.json:', unlinkError);
+        }
+    }
+  }
+  // === MODIFIED LOGIC END ===
+
+  res.render('edit-poster-video', {
+    user: req.session.user,
+    dashboard: isDashboard,
+    currentVideoFile: displayedVideoFilename, // Use the new variable
+    // flashMessages are already available globally via middleware
+  });
+});
+
+// POST route to handle poster video update
+app.post('/admin/update-poster-video', requireAdmin, (req, res) => {
+  console.log('[LOG] POST /admin/update-poster-video route hit.'); // Added log
+
+  uploadPosterVideo.single('posterVideo')(req, res, function (err) {
+    const isDashboard = req.query.dashboard === 'true' || (req.get('Referer') && req.get('Referer').includes('dashboard=true'));
+    const redirectUrl = `/admin/edit-poster-video${isDashboard ? '?dashboard=true' : ''}`;
+
+    console.log('[LOG] Inside uploadPosterVideo.single callback.'); // Added log
+
+    if (err instanceof multer.MulterError) {
+      // A Multer error occurred when uploading.
+      console.error('[LOG] Multer error updating poster video:', err); // Modified log
+      req.flash('error', `Upload error: ${err.message}`);
+      return res.redirect(redirectUrl);
+    } else if (err) {
+      // An unknown error occurred when uploading.
+      console.error('[LOG] Unknown error updating poster video:', err); // Modified log
+      req.flash('error', `Upload error: ${err.message}`);
+      return res.redirect(redirectUrl);
     }
 
-    const post = await postsCollection.findOne({ _id: postObjectId });
+    // If file upload was successful
+    if (!req.file) {
+      console.log('[LOG] No video file was uploaded (req.file is empty).'); // Added log
+      req.flash('error', 'No video file was uploaded. Please select an MP4 file.');
+      return res.redirect(redirectUrl);
+    }
+
+    console.log('[LOG] Video file uploaded, req.file:', req.file); // Added log
+
+    // === ADDED LOGIC START ===
+    const originalFilename = req.file.originalname;
+    const posterInfoPath = path.join(__dirname, 'poster-info.json');
+    const posterInfo = { originalFilename: originalFilename, uploadedTimestamp: new Date().toISOString() };
+    try {
+      fs.writeFileSync(posterInfoPath, JSON.stringify(posterInfo, null, 2));
+      console.log(`Stored poster info: ${originalFilename}`);
+    } catch (writeError) {
+      console.error('Error writing poster-info.json:', writeError);
+      // Not critical enough to fail the request, but log it.
+    }
+    // === ADDED LOGIC END ===
+
+    req.flash('success', 'Poster video updated successfully! The change may take a moment to reflect if the browser has cached the old video.');
+    res.redirect(redirectUrl);
+  });
+});
+
+// ==== ADMIN USER 2FA MANAGEMENT ROUTES ====
+
+// Force a user to set up 2FA on next login
+app.get('/admin/user/:id/force-2fa-setup', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      req.flash('error', 'User not found.');
+      return res.redirect('/manage-accounts');
+    }
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null; // Clear any existing secret
+    user.backupCodes = [];       // Clear backup codes
+    user.needs2FASetup = true;
+    await user.save();
+    req.flash('success', `User ${user.username} will be required to set up 2FA on their next login.`)
+  } catch (error) {
+    console.error('Error forcing 2FA setup:', error);
+    req.flash('error', 'Error forcing 2FA setup.');
+  }
+  res.redirect('/manage-accounts');
+});
+
+// Disable 2FA for a user
+app.get('/admin/user/:id/disable-2fa', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      req.flash('error', 'User not found.');
+      return res.redirect('/manage-accounts');
+    }
+    user.twoFactorEnabled = false;
+    // Optionally, you might want to clear the secret and backup codes too for a cleaner disable
+    // user.twoFactorSecret = null;
+    // user.backupCodes = [];
+    await user.save();
+    req.flash('success', `2FA has been disabled for ${user.username}.`);
+  } catch (error) {
+    console.error('Error disabling 2FA:', error);
+    req.flash('error', 'Error disabling 2FA.');
+  }
+  res.redirect('/manage-accounts');
+});
+
+// Reset/Clear 2FA Secret for a user (forces re-setup)
+app.get('/admin/user/:id/reset-2fa-secret', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      req.flash('error', 'User not found.');
+      return res.redirect('/manage-accounts');
+    }
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    user.backupCodes = [];
+    user.needs2FASetup = true;
+    await user.save();
+    req.flash('success', `2FA secret has been reset for ${user.username}. They will need to set it up again on next login.`);
+  } catch (error) {
+    console.error('Error resetting 2FA secret:', error);
+    req.flash('error', 'Error resetting 2FA secret.');
+  }
+  res.redirect('/manage-accounts');
+});
+
+// API route for upvoting a post
+app.post('/api/posts/:id/upvote', async (req, res) => {
+  try {
+    // Check if user is logged in
+    if (!req.session.userId) {
+      return res.status(401).json({ success: false, error: 'You must be logged in to upvote' });
+    }
+
+    const postId = req.params.id;
+    const userId = req.session.userId;
+
+    // Find the post
+    const post = await Post.findById(postId);
     if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
+      return res.status(404).json({ success: false, error: 'Post not found' });
     }
 
-    // Fetch user's profile picture
-    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
-    const profilePicture = user ? user.profilePicture : '/images/default-profile.jpg';
+    // Initialize upvotes array if it doesn't exist
+    if (!post.upvotes) {
+      post.upvotes = [];
+    }
 
+    // Check if user has already upvoted
+    const userIndex = post.upvotes.indexOf(userId);
+    
+    if (userIndex === -1) {
+      // User hasn't upvoted yet, add upvote
+      post.upvotes.push(userId);
+    } else {
+      // User has already upvoted, remove upvote (toggle behavior)
+      post.upvotes.splice(userIndex, 1);
+    }
+
+    await post.save();
+
+    res.json({ 
+      success: true, 
+      upvotes: post.upvotes.length,
+      hasUpvoted: post.upvotes.includes(userId)
+    });
+  } catch (error) {
+    console.error('Error upvoting post:', error);
+    res.status(500).json({ success: false, error: 'Server error occurred' });
+  }
+});
+
+// API route for adding a comment to a post
+app.post('/api/posts/:id/comment', async (req, res) => {
+  try {
+    // Check if user is logged in
+    if (!req.session.userId) {
+      return res.status(401).json({ success: false, error: 'You must be logged in to comment' });
+    }
+
+    const postId = req.params.id;
+    const userId = req.session.userId;
+    const { text } = req.body;
+
+    // Validate comment text
+    if (!text || text.trim() === '') {
+      return res.status(400).json({ success: false, error: 'Comment text is required' });
+    }
+
+    // Find the post
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ success: false, error: 'Post not found' });
+    }
+
+    // Find the user to get their profile info
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Initialize comments array if it doesn't exist
+    if (!post.comments) {
+      post.comments = [];
+    }
+
+    // Create a new comment
     const newComment = {
-      _id: new ObjectId(), // Generate a new ObjectId for the comment
-      user: new ObjectId(userId),
-      username: username,
-      profilePicture: profilePicture,
-      text: text,
+      user: userId,
+      text: text.trim(),
       createdAt: new Date()
     };
 
-    await postsCollection.updateOne(
-      { _id: postObjectId },
-      { $push: { comments: { $each: [newComment], $sort: { createdAt: -1 } } } } // Add to comments array and sort by date
-    );
-    
-    // Return the new comment object (or just essential parts) so the client can display it
-    res.json({ 
-        success: true, 
-        comment: {
-            ...newComment,
-            // Convert ObjectId to string for JSON response if needed by client
-            _id: newComment._id.toString(), 
-            user: newComment.user.toString(),
-            createdAtFormatted: moment(newComment.createdAt).fromNow() // Format date for display
-        } 
-    });
+    // Add comment to post
+    post.comments.unshift(newComment); // Add to the beginning of the array
+    await post.save();
 
+    // Format the response with user details
+    const commentResponse = {
+      ...newComment,
+      user: {
+        _id: user._id,
+        username: user.username,
+        profilePicture: user.profilePicture || '/images/default-profile.png'
+      }
+    };
+
+    res.json({ 
+      success: true, 
+      comment: commentResponse
+    });
   } catch (error) {
     console.error('Error adding comment:', error);
-    res.status(500).json({ success: false, message: 'Failed to add comment.' });
+    res.status(500).json({ success: false, error: 'Server error occurred' });
   }
 });
 
-// ... existing code ...
-// Update user-landing route for trending posts
-app.get('/user-landing', async (req, res) => {
+// API route to check if session is valid
+app.get('/api/check-session', (req, res) => {
+  if (req.session.userId) {
+    return res.json({ authenticated: true });
+  }
+  res.json({ authenticated: false });
+});
+
+// Update the post detail route to populate comments with user info
+app.get('/post/:id', async (req, res) => {
   try {
-    console.log('Accessing user landing page');
+    const postId = req.params.id;
     
-    const sortDirection = req.query.sort === 'asc' ? 1 : -1;
-    const postsCollection = robolutionDb.collection('posts');
+    // Find the post and populate the comments with user info
+    const post = await Post.findById(postId)
+      .populate({
+        path: 'comments.user',
+        select: 'username profilePicture'
+      });
     
-    // Fetch all posts sorted as per user selection
-    let posts = await postsCollection.find().sort({ createdAt: sortDirection }).toArray();
-    console.log(`Found ${posts.length} posts for user landing`);
-    posts = JSON.parse(JSON.stringify(posts));
-
-    // Fetch trending posts (e.g., last 30 days, limit 15, sorted by upvotes or comments count descending)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    let trendingPosts = await postsCollection.aggregate([
-      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
-      // Add a field for upvote count
-      { $addFields: { upvoteCount: { $size: "$upvotes" } } },
-      // Sort by upvote count, then by creation date
-      { $sort: { upvoteCount: -1, createdAt: -1 } },
-      { $limit: 15 }
-    ]).toArray();
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
     
-    console.log(`Found ${trendingPosts.length} trending posts`);
-    trendingPosts = JSON.parse(JSON.stringify(trendingPosts));
+    // Get unique regions with posts for the dropdown menu
+    const allPosts = await Post.find({ region: { $ne: null } });
+    const uniqueRegions = [...new Set(allPosts.map(p => p.region).filter(r => r && r !== 'All'))];
     
-    res.render('UserViews/user-landing', { 
-      posts, 
-      trendingPosts, // Pass trending posts to the template
-      sort: req.query.sort || 'desc'
+    res.render('UserViews/post-detail', { 
+      post,
+      uniqueRegions,
+      user: req.session.userId ? await User.findById(req.session.userId) : null,
+      req
     });
   } catch (error) {
-    console.error('Error in user-landing route:', error);
-    res.status(500).send('Internal Server Error');
+    console.error('Error fetching post:', error);
+    res.status(500).send('Server error occurred');
   }
 });
 
-// ... existing code ...
+// User landing page with posts
+app.get('/user-landing', async (req, res) => {
+  try {
+    // Get all posts
+    let sort = req.query.sort || 'desc';
+    
+    // Validate sort parameter
+    if (sort !== 'asc' && sort !== 'desc') {
+      sort = 'desc';
+    }
+    
+    // Get all posts sorted by date
+    const posts = await Post.find()
+      .sort({ createdAt: sort === 'desc' ? -1 : 1 });
+    
+    res.render('UserViews/user-landing', { 
+      posts,
+      sort,
+      user: req.session.userId ? await User.findById(req.session.userId) : null
+    });
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    res.status(500).send('Server error occurred');
+  }
+});

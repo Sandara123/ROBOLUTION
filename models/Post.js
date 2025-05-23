@@ -1,19 +1,10 @@
 const mongoose = require('mongoose');
 
-// Define the schema for comments
 const commentSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // Reference to the User model
+    ref: 'User',
     required: true
-  },
-  username: { // Denormalized username for easier display
-    type: String,
-    required: true
-  },
-  profilePicture: { // Denormalized profile picture URL for easier display
-    type: String,
-    default: '/images/default-profile.jpg' // Default image if user has no picture
   },
   text: {
     type: String,
@@ -25,37 +16,24 @@ const commentSchema = new mongoose.Schema({
   }
 });
 
-// Define the main post schema
 const postSchema = new mongoose.Schema({
-  title: {
+  title: String,
+  content: String,
+  author: String,
+  imageUrl: String,
+  region: {
     type: String,
-    required: true
-  },
-  content: {
-    type: String,
-    required: true
-  },
-  imageUrl: {
-    type: String,
-    default: '' // Default empty string if no image URL is provided
-  },
-  author: {
-    type: String,
-    required: true
+    default: 'All'
   },
   createdAt: {
     type: Date,
-    default: Date.now // Default to current date and time
-  },
-  region: {
-    type: String,
-    default: 'All' // Default region if not specified
+    default: Date.now
   },
   upvotes: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User' // Array of User ObjectIds who upvoted
+    ref: 'User'
   }],
-  comments: [commentSchema] // Array of embedded comment documents
+  comments: [commentSchema]
 });
 
 module.exports = mongoose.model('Post', postSchema);
