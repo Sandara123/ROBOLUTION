@@ -197,13 +197,16 @@
     .trending-slider {
       display: flex;
       transition: transform 0.5s ease;
+      position: relative;
+      width: 100%;
     }
     
     .trending-timeframe-container {
       display: none; /* Start hidden, will be made visible with JS */
-      flex-wrap: wrap;
+      flex-wrap: nowrap; /* Don't wrap items - needed for slider */
       gap: 20px;
       width: 100%;
+      min-width: 100%;
     }
     
     /* Active timeframe container */
@@ -960,103 +963,100 @@
       }
     });
     
-    // Handle trending posts time frame filter buttons
-    const timeframeButtons = document.querySelectorAll('.trending-filter-btn');
-    const timeframeContainers = document.querySelectorAll('.trending-timeframe-container');
-    
-    timeframeButtons.forEach(function(button) {
-      button.addEventListener('click', function() {
-        // Remove active class from all buttons
-        timeframeButtons.forEach(btn => btn.classList.remove('active'));
-        
-        // Add active class to clicked button
-        this.classList.add('active');
-        
-        // Hide all containers
-        timeframeContainers.forEach(container => container.classList.remove('active'));
-        
-        // Show the selected container
-        const timeframe = this.dataset.timeframe;
-        document.getElementById(timeframe + '-container').classList.add('active');
-        
-        // Reset trending slider position
-        const slider = document.getElementById('trendingSlider');
-        if (slider) {
-          slider.style.transform = 'translateX(0)';
-          currentPosition = 0;
-          updateButtonStates();
-        }
-      });
-    });
-    
-    // Handle back-to-top button
-    const backToTopButton = document.getElementById('backToTop');
-    
-    if (backToTopButton) {
-      window.addEventListener('scroll', function() {
-        if (window.pageYOffset > 300) {
-          backToTopButton.classList.add('show');
-        } else {
-          backToTopButton.classList.remove('show');
-        }
-      });
-      
-      backToTopButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-    }
-    
     // Trending posts slider functionality
     const slider = document.getElementById('trendingSlider');
     const prevBtn = document.getElementById('sliderPrev');
     const nextBtn = document.getElementById('sliderNext');
     
     if (slider && prevBtn && nextBtn) {
-      const slideWidth = document.querySelector('.trending-post')?.offsetWidth + 20 || 300; // 20px gap
-      let currentPosition = 0;
-      let maxScroll = slider.scrollWidth - slider.clientWidth;
+      // Get the current visible container
+      const getVisibleContainer = () => {
+        return document.querySelector('.trending-timeframe-container.active');
+      };
       
-      // Function to update button states based on scroll position
-      function updateButtonStates() {
+      let currentPosition = 0;
+      
+      // Function to update button states and max scroll based on current container
+      function updateSliderState() {
+        const container = getVisibleContainer();
+        if (!container) return;
+        
+        const slideWidth = document.querySelector('.trending-post')?.offsetWidth + 20 || 300; // 20px gap
+        const visibleWidth = slider.clientWidth;
+        const contentWidth = container.scrollWidth;
+        const maxScroll = Math.max(0, contentWidth - visibleWidth);
+        
+        // Reset position if it's beyond the maximum for this container
+        if (currentPosition > maxScroll) {
+          currentPosition = maxScroll;
+          container.style.transform = `translateX(-${currentPosition}px)`;
+        }
+        
+        // Update button states
         prevBtn.style.opacity = currentPosition <= 0 ? '0.5' : '1';
         nextBtn.style.opacity = currentPosition >= maxScroll ? '0.5' : '1';
+        
+        return { slideWidth, maxScroll };
       }
       
       // Initialize button states
-      updateButtonStates();
+      updateSliderState();
       
       // Previous slide button
       prevBtn.addEventListener('click', function() {
-        if (currentPosition > 0) {
-          currentPosition = Math.max(0, currentPosition - slideWidth * 3);
-          slider.style.transform = `translateX(-${currentPosition}px)`;
-          updateButtonStates();
-        }
+        const { slideWidth } = updateSliderState();
+        const container = getVisibleContainer();
+        if (!container || currentPosition <= 0) return;
+        
+        currentPosition = Math.max(0, currentPosition - slideWidth * 3);
+        container.style.transform = `translateX(-${currentPosition}px)`;
+        updateSliderState();
       });
       
       // Next slide button
       nextBtn.addEventListener('click', function() {
-        if (currentPosition < maxScroll) {
-          currentPosition = Math.min(maxScroll, currentPosition + slideWidth * 3);
-          slider.style.transform = `translateX(-${currentPosition}px)`;
-          updateButtonStates();
-        }
+        const { slideWidth, maxScroll } = updateSliderState();
+        const container = getVisibleContainer();
+        if (!container || currentPosition >= maxScroll) return;
+        
+        currentPosition = Math.min(maxScroll, currentPosition + slideWidth * 3);
+        container.style.transform = `translateX(-${currentPosition}px)`;
+        updateSliderState();
+      });
+      
+      // Handle trending posts time frame filter buttons
+      const timeframeButtons = document.querySelectorAll('.trending-filter-btn');
+      const timeframeContainers = document.querySelectorAll('.trending-timeframe-container');
+      
+      timeframeButtons.forEach(function(button) {
+        button.addEventListener('click', function() {
+          // Remove active class from all buttons
+          timeframeButtons.forEach(btn => btn.classList.remove('active'));
+          
+          // Add active class to clicked button
+          this.classList.add('active');
+          
+          // Hide all containers
+          timeframeContainers.forEach(container => {
+            container.classList.remove('active');
+            // Reset all transforms
+            container.style.transform = '';
+          });
+          
+          // Show the selected container
+          const timeframe = this.dataset.timeframe;
+          document.getElementById(timeframe + '-container').classList.add('active');
+          
+          // Reset position
+          currentPosition = 0;
+          
+          // Update buttons for the new container
+          updateSliderState();
+        });
       });
       
       // Recalculate on window resize
-      window.addEventListener('resize', function() {
-        const newSlideWidth = document.querySelector('.trending-post')?.offsetWidth + 20 || 300;
-        maxScroll = slider.scrollWidth - slider.clientWidth;
-        
-        // Adjust current position if needed
-        if (currentPosition > maxScroll) {
-          currentPosition = maxScroll;
-          slider.style.transform = `translateX(-${currentPosition}px)`;
-        }
-        
-        updateButtonStates();
-      });
+      window.addEventListener('resize', updateSliderState);
     }
     
     // Check if user is logged in using a cookie check
