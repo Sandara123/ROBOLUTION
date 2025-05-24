@@ -4260,7 +4260,7 @@ app.post('/account/user/change-password/:id', requireAdmin, async (req, res) => 
 });
 
 // Database backup management route
-app.get('/manage-backups', requireAdmin, async (req, res) => {
+app.get('/manage-backups', requireSuperAdmin, async (req, res) => {
   try {
     const isDashboard = req.query.dashboard === 'true';
     // Optional: Add superadmin check if only superadmins can manage backups
@@ -4313,7 +4313,7 @@ app.get('/manage-backups', requireAdmin, async (req, res) => {
 });
 
 // Trigger a manual backup
-app.post('/trigger-backup', requireAdmin, async (req, res) => {
+app.post('/trigger-backup', requireSuperAdmin, async (req, res) => {
   try {
     const backupsDir = path.join(__dirname, 'database_backups');
     
@@ -4413,7 +4413,7 @@ app.post('/trigger-backup', requireAdmin, async (req, res) => {
 });
 
 // Delete a backup
-app.get('/delete-backup/:name', requireAdmin, async (req, res) => {
+app.get('/delete-backup/:name', requireSuperAdmin, async (req, res) => {
   try {
     const backupId = req.params.name;
     if (!backupId || !backupId.startsWith('backup-')) {
@@ -4480,7 +4480,7 @@ app.get('/delete-backup/:name', requireAdmin, async (req, res) => {
 });
 
 // Restore from a backup
-app.get('/restore-backup/:name', requireAdmin, async (req, res) => {
+app.get('/restore-backup/:name', requireSuperAdmin, async (req, res) => {
   try {
     const backupId = req.params.name;
     if (!backupId || !backupId.startsWith('backup-')) {

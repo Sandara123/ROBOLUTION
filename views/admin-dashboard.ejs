@@ -724,12 +724,14 @@
         </div>
 
         <div class="sidebar-heading">System</div>
+        <% if (user && user.role === 'SUPERADMIN') { %>
         <div class="sidebar-item">
           <a href="#backups" class="sidebar-link" data-page="backups">
             <i class="fas fa-database sidebar-icon"></i>
             <span class="sidebar-text">Backups</span>
           </a>
         </div>
+        <% } %>
         <div class="sidebar-item">
           <a href="#edit-poster-video" class="sidebar-link" data-page="edit-poster-video">
             <i class="fas fa-video sidebar-icon"></i>
@@ -881,12 +883,14 @@
             </div>
             <div class="action-text">Categories</div>
           </a>
+          <% if (user && user.role === 'SUPERADMIN') { %>
           <a href="#backups" class="action-item" data-page="backups">
             <div class="action-icon">
               <i class="fas fa-database"></i>
             </div>
             <div class="action-text">Backups</div>
           </a>
+          <% } %>
         </div>
       </div>
 
