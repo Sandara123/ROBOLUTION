@@ -2915,7 +2915,7 @@ app.get('/registration/:id', async (req, res) => {
 // ====== User Account Management Routes ======
 
 // Route to view all user accounts
-app.get('/manage-accounts', requireAdmin, async (req, res) => {
+app.get('/manage-accounts', requireSuperAdmin, async (req, res) => {
   try {
     const isDashboard = req.query.dashboard === 'true';
     // Get query parameters for filtering
@@ -2976,7 +2976,7 @@ app.get('/manage-accounts', requireAdmin, async (req, res) => {
 });
 
 // Route to edit admin account
-app.get('/account/admin/edit/:id', requireAdmin, async (req, res) => {
+app.get('/account/admin/edit/:id', requireSuperAdmin, async (req, res) => {
   try {
     const isDashboard = req.query.dashboard === 'true';
     console.log('Accessing admin account with ID:', req.params.id);
@@ -3026,7 +3026,7 @@ app.get('/account/admin/edit/:id', requireAdmin, async (req, res) => {
 });
 
 // Route to handle admin account updates
-app.post('/account/admin/edit/:id', requireAdmin, async (req, res) => {
+app.post('/account/admin/edit/:id', requireSuperAdmin, async (req, res) => {
   try {
     const ObjectId = require('mongodb').ObjectId;
     let adminIdToEdit;
@@ -3144,7 +3144,7 @@ app.post('/account/admin/edit/:id', requireAdmin, async (req, res) => {
 });
 
 // Route to edit regular user account
-app.get('/account/user/edit/:id', requireAdmin, async (req, res) => {
+app.get('/account/user/edit/:id', requireSuperAdmin, async (req, res) => {
   try {
     let user = null;
     
@@ -3194,7 +3194,7 @@ app.get('/account/user/edit/:id', requireAdmin, async (req, res) => {
 });
 
 // Route to handle user account updates
-app.post('/account/user/edit/:id', requireAdmin, async (req, res) => {
+app.post('/account/user/edit/:id', requireSuperAdmin, async (req, res) => {
   try {
     const { username, fullName, email, resetPassword, twoFactorEnabled } = req.body;
     
@@ -3459,7 +3459,7 @@ app.post('/admin/user-profiles/:id/update', requireAdmin, upload.single('profile
 });
 
 // Route to delete admin account
-app.get('/account/admin/delete/:id', requireAdmin, async (req, res) => {
+app.get('/account/admin/delete/:id', requireSuperAdmin, async (req, res) => {
   try {
     const ObjectId = require('mongodb').ObjectId;
     let adminId;
@@ -3506,7 +3506,7 @@ app.get('/account/admin/delete/:id', requireAdmin, async (req, res) => {
 });
 
 // Route to delete regular user account
-app.get('/account/user/delete/:id', requireAdmin, async (req, res) => {
+app.get('/account/user/delete/:id', requireSuperAdmin, async (req, res) => {
   try {
     // Convert string ID to ObjectId safely
     let userId;
@@ -4014,7 +4014,7 @@ app.post('/registration/update-status/:id', async (req, res) => {
 });
 
 // Admin password reset route
-app.get('/account/admin/reset-password/:id', requireAdmin, async (req, res) => {
+app.get('/account/admin/reset-password/:id', requireSuperAdmin, async (req, res) => {
   try {
     const adminId = req.params.id;
     
@@ -4047,7 +4047,7 @@ app.get('/account/admin/reset-password/:id', requireAdmin, async (req, res) => {
 });
 
 // User password reset route
-app.get('/account/user/reset-password/:id', requireAdmin, async (req, res) => {
+app.get('/account/user/reset-password/:id', requireSuperAdmin, async (req, res) => {
   try {
     // Convert string ID to ObjectId safely
     let userId;
@@ -4097,7 +4097,7 @@ app.get('/account/user/reset-password/:id', requireAdmin, async (req, res) => {
 });
 
 // User password change route
-app.post('/account/user/change-password/:id', requireAdmin, async (req, res) => {
+app.post('/account/user/change-password/:id', requireSuperAdmin, async (req, res) => {
   try {
     // Convert string ID to ObjectId safely
     let userId;
@@ -5439,7 +5439,7 @@ app.get('/profile', requireLogin, async (req, res) => { // Added requireLogin
 });
 
 // Update account/admin/edit route with direct DB access
-app.get('/account/admin/edit/:id', requireAdmin, async (req, res) => {
+app.get('/account/admin/edit/:id', requireSuperAdmin, async (req, res) => {
   try {
     console.log('Accessing admin account with ID:', req.params.id);
     
@@ -5536,7 +5536,7 @@ app.get('/account/admin/edit/:id', requireAdmin, async (req, res) => {
 });
 
 // Update account/user/edit route with direct MongoDB access
-app.get('/account/user/edit/:id', requireAdmin, async (req, res) => {
+app.get('/account/user/edit/:id', requireSuperAdmin, async (req, res) => {
   try {
     console.log('Accessing user account for editing with ID:', req.params.id);
     
@@ -5685,7 +5685,7 @@ app.get('/admin/user-profiles/:id', requireAdmin, async (req, res) => {
 });
 
 // Route to make a user an admin
-app.get('/account/user/make-admin/:id', requireAdmin, async (req, res) => {
+app.get('/account/user/make-admin/:id', requireSuperAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     console.log(`Attempting to make user with ID: ${userId} an admin.`);
@@ -6046,7 +6046,7 @@ app.post('/admin/update-poster-video', requireAdmin, (req, res) => {
 // ==== ADMIN USER 2FA MANAGEMENT ROUTES ====
 
 // Force a user to set up 2FA on next login
-app.get('/admin/user/:id/force-2fa-setup', requireAdmin, async (req, res) => {
+app.get('/admin/user/:id/force-2fa-setup', requireSuperAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     const user = await User.findById(userId);
@@ -6068,7 +6068,7 @@ app.get('/admin/user/:id/force-2fa-setup', requireAdmin, async (req, res) => {
 });
 
 // Disable 2FA for a user
-app.get('/admin/user/:id/disable-2fa', requireAdmin, async (req, res) => {
+app.get('/admin/user/:id/disable-2fa', requireSuperAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     const user = await User.findById(userId);
@@ -6090,7 +6090,7 @@ app.get('/admin/user/:id/disable-2fa', requireAdmin, async (req, res) => {
 });
 
 // Reset/Clear 2FA Secret for a user (forces re-setup)
-app.get('/admin/user/:id/reset-2fa-secret', requireAdmin, async (req, res) => {
+app.get('/admin/user/:id/reset-2fa-secret', requireSuperAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     const user = await User.findById(userId);

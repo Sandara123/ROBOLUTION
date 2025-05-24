@@ -641,7 +641,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-logo">
-          <img src="/images/LOGO.webp" alt="Robolution Logo">
+          <img src="/images/ADMIN_LOGO.png" alt="Robolution Logo">
           <h1>Robolution</h1>
         </div>
         <button class="sidebar-toggle" id="sidebar-toggle">
@@ -685,12 +685,14 @@
         </div>
 
         <div class="sidebar-heading">Users</div>
+        <% if (user && user.role === 'superadmin') { %>
         <div class="sidebar-item">
           <a href="#manage-accounts" class="sidebar-link" data-page="manage-accounts">
             <i class="fas fa-users-cog sidebar-icon"></i>
             <span class="sidebar-text">Manage Accounts</span>
           </a>
         </div>
+        <% } %>
         <div class="sidebar-item">
           <a href="#user-profiles" class="sidebar-link" data-page="user-profiles">
             <i class="fas fa-id-card sidebar-icon"></i>
@@ -871,12 +873,14 @@
             </div>
             <div class="action-text">Registrations</div>
           </a>
+          <% if (user && user.role === 'superadmin') { %>
           <a href="#manage-accounts" class="action-item" data-page="manage-accounts">
             <div class="action-icon">
               <i class="fas fa-users-cog"></i>
             </div>
             <div class="action-text">Accounts</div>
           </a>
+          <% } %>
           <a href="#categories" class="action-item" data-page="categories">
             <div class="action-icon">
               <i class="fas fa-layer-group"></i>

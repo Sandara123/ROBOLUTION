@@ -372,35 +372,6 @@
 </head>
 <body>
 <div class="content-wrapper">
-  <% if (!locals.dashboard) { %>
-  <header>
-    <div class="header-content">
-      <img src="/images/LOGO.webp" alt="Robolution Logo" class="logo">
-      <nav class="header-nav">
-        <a href="/create-post" class="nav-button create-post-button">Create Post</a>
-        <a href="/index" class="nav-button">News</a>
-        <a href="/categories" class="nav-button">Categories</a>
-        <a href="/manage-categories" class="nav-button">Manage Categories</a>
-        <a href="/manage-registrations" class="nav-button">Manage Registration</a>
-        <a href="/manage-accounts" class="nav-button">Accounts</a>
-        <a href="/admin/user-profiles" class="nav-button">User Profiles</a>
-        <a href="/manage-backups" class="nav-button">Backups</a>
-        <div class="dropdown">
-          <button class="nav-button dropdown-btn">Regional</button>
-          <div class="dropdown-content">
-            <a href="/admin-regional?region=All">All Regions</a>
-            <% if (typeof uniqueRegions !== 'undefined' && uniqueRegions.length > 0) { %>
-              <% uniqueRegions.forEach(function(region) { %>
-                <a href="/admin-regional?region=<%= region %>"><%= region %></a>
-              <% }); %>
-            <% } %>
-          </div>
-        </div>
-        <a href="/logout" class="nav-button logout-button">Logout</a>
-      </nav>
-    </div>
-  </header>
-  <% } %>
 
   <main>
     <div class="backups-container">
@@ -457,25 +428,6 @@
       <% } %>
     </div>
   </main>
-
-  <% if (!locals.dashboard) { %>
-  <footer class="fixed-footer">
-    <div class="footer-content">
-      <div class="footer-left">
-        <p>Powered by Erovoutika</p>
-      </div>
-      <div class="footer-right">
-        <p>Unit 703, PARC HOUSE II, Epifanio de los Santos Ave, Makati, 1212 Metro Manila</p>
-        <p><strong>Contact us via:</strong> 0974 423 1557 || erovoutika@gmail.com</p>
-        <div class="social-icons">
-          <a href="https://www.facebook.com/erovoutika" target="_blank" class="social-icon">f</a>
-          <a href="https://www.erovoutika.ph" target="_blank" class="social-icon">↗</a>
-          <a href="https://www.linkedin.com/company/erovoutika/" target="_blank" class="social-icon">in</a>
-        </div>
-      </div>
-    </div>
-  </footer>
-  <% } %>
 </div>
 
 <!-- Restore Confirmation Modal -->
