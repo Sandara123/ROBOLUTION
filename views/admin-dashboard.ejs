@@ -724,7 +724,7 @@
         </div>
 
         <div class="sidebar-heading">System</div>
-        <% if (user && user.role === 'SUPERADMIN') { %>
+        <% if (user && user.role === 'superadmin') { %>
         <div class="sidebar-item">
           <a href="#backups" class="sidebar-link" data-page="backups">
             <i class="fas fa-database sidebar-icon"></i>
@@ -883,7 +883,7 @@
             </div>
             <div class="action-text">Categories</div>
           </a>
-          <% if (user && user.role === 'SUPERADMIN') { %>
+          <% if (user && user.role === 'superadmin') { %>
           <a href="#backups" class="action-item" data-page="backups">
             <div class="action-icon">
               <i class="fas fa-database"></i>
